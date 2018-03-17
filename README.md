@@ -10,6 +10,8 @@ Some shared module:
 
 ```rust
 pub mod app {
+  use robin::prelude::*;
+
   #[derive(Serialize, Deserialize)]
   pub struct User {
       pub id: u32,
