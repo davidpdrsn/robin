@@ -1,5 +1,5 @@
-extern crate serde_json;
-
+use serde_json;
+use redis;
 use job::JobName;
 use std::io;
 
@@ -7,11 +7,15 @@ pub type RobinResult<T> = Result<T, Error>;
 
 #[derive(Debug)]
 pub enum Error {
-    ConnectionError,
     JobAlreadyRegistered(JobName),
+    JobNotRegistered(String),
+
     IoError(io::Error),
+
     SerdeJsonError(serde_json::Error),
-    EnqueueError(String),
+
+    RedisError(redis::RedisError),
+    UnknownRedisError(String),
 }
 
 impl From<io::Error> for Error {
@@ -23,5 +27,11 @@ impl From<io::Error> for Error {
 impl From<serde_json::Error> for Error {
     fn from(error: serde_json::Error) -> Error {
         Error::SerdeJsonError(error)
+    }
+}
+
+impl From<redis::RedisError> for Error {
+    fn from(error: redis::RedisError) -> Error {
+        Error::RedisError(error)
     }
 }

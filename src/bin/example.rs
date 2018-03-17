@@ -3,12 +3,11 @@ extern crate robin;
 extern crate serde_derive;
 
 use std::thread::JoinHandle;
-use std::thread;
-use std::time::Duration;
+use std::env::args;
 
 use robin::prelude::*;
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 struct User {
     id: u32,
 }
@@ -16,12 +15,9 @@ struct User {
 struct NotifyUser;
 
 impl Job for NotifyUser {
-    fn perform(&self, arg: &str) -> RobinResult<()> {
-        let user: User = deserialize_arg(arg)?;
-
-        thread::sleep(Duration::from_secs(2));
-        println!("User {} has been notified!", user.id);
-
+    fn perform(&self, args: &str) -> RobinResult<()> {
+        let user: User = deserialize_arg(args)?;
+        println!("{:?} has been notified!", user);
         Ok(())
     }
 
@@ -31,33 +27,38 @@ impl Job for NotifyUser {
 }
 
 fn main() {
-    let client = spawn_client();
-    let worker = spawn_worker();
+    let args = args().collect::<Vec<_>>();
 
-    client.join().expect("client join failed");
-    worker.join().expect("worker join failed");
+    if args.get(1) == Some(&"--worker".to_string()) {
+        run_worker();
+    } else {
+        run_client();
+    }
 }
 
-fn spawn_client() -> JoinHandle<()> {
-    thread::spawn(|| {
-        let con = establish_connection_to_worker().expect("Failed to connect");
-        let bob = User { id: 1 };
+fn run_client() {
+    use std::io::{self, BufRead};
+
+    println!("Starting client. Press <enter> to enqueue job");
+
+    let con = establish_connection_to_worker().expect("Failed to connect");
+    let bob = User { id: 10 };
+
+    let stdin = io::stdin();
+    for _ in stdin.lock().lines() {
         NotifyUser.perform_later(&con, &bob).expect(
             "Failed to perform_later",
         );
-    })
+    }
 }
 
-fn spawn_worker() -> JoinHandle<()> {
-    thread::spawn(|| {
-        let con = establish_connection_to_worker().expect("Failed to connect");
-        boot(con);
-    })
+fn run_worker() {
+    let con = establish_connection_to_worker().expect("Failed to connect");
+    robin::worker::boot(con);
 }
 
-// TODO: Duplicated between client and worker
 fn establish_connection_to_worker() -> RobinResult<WorkerConnection> {
-    let mut con: WorkerConnection = establish()?;
+    let mut con: WorkerConnection = robin::connection::establish()?;
     con.register(NotifyUser)?;
     Ok(con)
 }
