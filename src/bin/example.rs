@@ -2,7 +2,6 @@ extern crate robin;
 #[macro_use]
 extern crate serde_derive;
 
-use std::thread::JoinHandle;
 use std::env::args;
 
 use robin::prelude::*;
