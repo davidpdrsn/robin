@@ -2,8 +2,10 @@ use error::*;
 use job::*;
 use std::collections::HashMap;
 
+use job::JobName;
+
 pub struct WorkerConnection {
-    jobs: HashMap<String, Box<Job>>,
+    jobs: HashMap<JobName, Box<Job>>,
 }
 
 impl WorkerConnection {
@@ -11,10 +13,10 @@ impl WorkerConnection {
     where
         T: 'static + Job,
     {
-        let name = job.name().to_string();
+        let name = job.name();
 
         if self.jobs.contains_key(&name) {
-            Err(Error::JobAlreadyRegistered(name.clone()))
+            Err(Error::JobAlreadyRegistered(name))
         } else {
             self.jobs.insert(name, Box::new(job));
             Ok(())

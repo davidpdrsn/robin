@@ -3,10 +3,6 @@ extern crate serde_json;
 use serde::{Serialize, Deserialize};
 use connection::*;
 
-mod job_name;
-
-pub use self::job_name::JobName;
-
 pub trait Job {
     fn perform(&self, arg: &str);
     fn name(&self) -> JobName;
@@ -26,7 +22,7 @@ where
     }
 
     fn perform_later<A: Serialize>(&self, con: &WorkerConnection, arg: A) {
-        self.perform(&serialize_arg(arg));
+        // con.enqueue(self.name(), &serialize_arg(arg));
     }
 }
 
@@ -36,4 +32,13 @@ fn serialize_arg<T: Serialize>(value: T) -> String {
 
 pub fn deserialize_arg<'a, T: Deserialize<'a>>(arg: &'a str) -> T {
     serde_json::from_str(arg).unwrap()
+}
+
+#[derive(Eq, PartialEq, Hash, Debug)]
+pub struct JobName(String);
+
+impl<T: Into<String>> From<T> for JobName {
+    fn from(t: T) -> JobName {
+        JobName(t.into())
+    }
 }
