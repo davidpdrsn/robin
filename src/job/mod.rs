@@ -3,8 +3,13 @@ extern crate serde_json;
 use serde::{Serialize, Deserialize};
 use connection::*;
 
+mod job_name;
+
+pub use self::job_name::JobName;
+
 pub trait Job {
     fn perform(&self, arg: &str);
+    fn name(&self) -> JobName;
 }
 
 pub trait PerformJob {
@@ -20,7 +25,7 @@ where
         self.perform(&serialize_arg(arg));
     }
 
-    fn perform_later<A: Serialize>(&self, _con: &WorkerConnection, arg: A) {
+    fn perform_later<A: Serialize>(&self, con: &WorkerConnection, arg: A) {
         self.perform(&serialize_arg(arg));
     }
 }

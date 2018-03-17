@@ -7,7 +7,7 @@ pub mod job;
 pub mod worker;
 
 pub mod prelude {
-    pub use job::{Job, PerformJob, deserialize_arg};
+    pub use job::{Job, PerformJob, deserialize_arg, JobName};
     pub use error::RobinResult;
     pub use connection::{WorkerConnection, establish};
     pub use worker::boot;

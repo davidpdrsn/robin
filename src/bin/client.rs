@@ -21,6 +21,10 @@ impl Job for NotifyUser {
         thread::sleep(Duration::from_secs(2));
         println!("User {} has been notified!", user.id);
     }
+
+    fn name(&self) -> JobName {
+        JobName::from("NotifyUser")
+    }
 }
 
 fn main() {
@@ -32,6 +36,6 @@ fn main() {
 
 fn establish_connection_to_worker() -> RobinResult<WorkerConnection> {
     let mut con: WorkerConnection = establish()?;
-    con.register("notify_user", &NotifyUser)?;
+    con.register(NotifyUser)?;
     Ok(con)
 }
