@@ -14,7 +14,7 @@ struct User {
 struct NotifyUser;
 
 impl Job for NotifyUser {
-    fn perform(&self, args: &str) -> RobinResult<()> {
+    fn perform(&self, _con: &WorkerConnection, args: &str) -> RobinResult<()> {
         let user: User = deserialize_arg(args)?;
         println!("{:?} has been notified!", user);
         Ok(())

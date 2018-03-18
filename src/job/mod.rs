@@ -5,21 +5,21 @@ use connection::*;
 use error::*;
 
 pub trait Job {
-    fn perform(&self, args: &str) -> RobinResult<()>;
+    fn perform(&self, con: &WorkerConnection, args: &str) -> RobinResult<()>;
     fn name(&self) -> JobName;
 }
 
 pub trait PerformJob {
-    fn perform_now<A: Serialize>(&self, args: A) -> RobinResult<()>;
-    fn perform_later<A: Serialize>(&self, _con: &WorkerConnection, args: A) -> RobinResult<()>;
+    fn perform_now<A: Serialize>(&self, con: &WorkerConnection, args: A) -> RobinResult<()>;
+    fn perform_later<A: Serialize>(&self, con: &WorkerConnection, args: A) -> RobinResult<()>;
 }
 
 impl<T> PerformJob for T
 where
     T: Job,
 {
-    fn perform_now<A: Serialize>(&self, args: A) -> RobinResult<()> {
-        self.perform(&serialize_arg(args)?)
+    fn perform_now<A: Serialize>(&self, con: &WorkerConnection, args: A) -> RobinResult<()> {
+        self.perform(con, &serialize_arg(args)?)
     }
 
     fn perform_later<A: Serialize>(&self, con: &WorkerConnection, args: A) -> RobinResult<()> {

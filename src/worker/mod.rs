@@ -5,7 +5,7 @@ pub fn boot(con: WorkerConnection) {
 
     loop {
         match con.dequeue() {
-            Ok((job, args)) => job.perform(&args).expect("Job failed"),
+            Ok((job, args)) => job.perform(&con, &args).expect("Job failed"),
             Err(err) => {
                 println!("Failed to dequeue job with error\n{:?}", err);
                 panic!()
