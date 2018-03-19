@@ -1,6 +1,6 @@
 [package]
 name = "robin"
-version = "0.1.0"
+version = "0.0.1"
 authors = ["David Pedersen <david.pdrsn@gmail.com>"]
 
 [dependencies]
