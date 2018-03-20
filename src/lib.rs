@@ -1,4 +1,3 @@
-#[macro_use]
 extern crate serde;
 #[macro_use]
 extern crate serde_json;
@@ -10,10 +9,12 @@ pub mod connection;
 pub mod error;
 pub mod job;
 pub mod worker;
+pub mod config;
 
 pub mod prelude {
-    pub use job::{Job, PerformJob, deserialize_arg, JobName};
+    pub use job::{Job, PerformJob, deserialize_arg, JobName, JobResult};
     pub use error::RobinResult;
     pub use connection::{WorkerConnection, establish};
-    pub use worker::{boot, boot_with_config, Config};
+    pub use worker::boot;
+    pub use config::Config;
 }

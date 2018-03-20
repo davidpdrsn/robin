@@ -1,3 +1,8 @@
 #!/bin/bash
 
-cargo watch --ignore "tests/tmp/*" --clear -x check -x test
+RUST_BACKTRACE=1 cargo watch \
+  --ignore "tests/tmp/*" \
+  --clear \
+  -x check \
+  -x test \
+  -x doc

@@ -4,17 +4,63 @@ use std::thread::{self, JoinHandle};
 use std::fs::{self, File};
 use std::io::{Write, BufWriter};
 use std::io::prelude::*;
+use std::io;
+use uuid::Uuid;
+
+pub struct TestHelper {
+    pub uuid: String,
+}
+
+impl TestHelper {
+    pub fn new() -> TestHelper {
+        TestHelper { uuid: Uuid::new_v4().hyphenated().to_string() }
+    }
+
+    pub fn setup<T: WithTempFile>(&self, args: &T) {
+        let con = establish_connection_to_worker(Config::test_config(&self.uuid))
+            .expect("Failed to connect");
+        con.delete_all().unwrap();
+
+        args.file().map(|file| delete_tmp_test_file(file));
+    }
+
+    pub fn teardown<T: WithTempFile>(&self, args: &T) {
+        self.setup(args);
+    }
+
+    pub fn spawn<F>(&mut self, f: F) -> JoinHandle<()>
+    where
+        F: 'static + FnOnce(WorkerConnection) + Send,
+    {
+        let uuid = self.uuid.clone();
+        thread::spawn(move || {
+            let con = establish_connection_to_worker(Config::test_config(&uuid))
+                .expect("Failed to connect");
+            f(con)
+        })
+    }
+}
+
+pub trait WithTempFile {
+    fn file(&self) -> Option<&str>;
+}
 
 #[derive(Serialize, Deserialize, Debug, Copy, Clone)]
 pub struct VerifyableJobArgs<'a> {
     pub file: &'a str,
 }
 
+impl<'a> WithTempFile for VerifyableJobArgs<'a> {
+    fn file(&self) -> Option<&str> {
+        Some(self.file)
+    }
+}
+
 pub struct VerifyableJob;
 
 impl VerifyableJob {
     pub fn assert_performed_with(args: &VerifyableJobArgs) {
-        let contents: String = read_tmp_test_file(args.file);
+        let contents: String = read_tmp_test_file(args.file).unwrap();
         assert_eq!(contents, args.file);
     }
 }
@@ -24,82 +70,133 @@ impl Job for VerifyableJob {
         JobName::from("VerifyableJob")
     }
 
-    fn perform(&self, _con: &WorkerConnection, args: &str) -> RobinResult<()> {
+    fn perform(&self, _con: &WorkerConnection, args: &str) -> JobResult {
         let args: VerifyableJobArgs = deserialize_arg(args)?;
         write_tmp_test_file(args.file, args.file);
         Ok(())
     }
 }
 
-fn write_tmp_test_file<S: ToString>(file: S, data: S) {
+pub fn write_tmp_test_file<S: ToString>(file: S, data: S) {
     let file = file.to_string();
     let file = format!("tests/tmp/{}", file);
     let data = data.to_string();
 
-    let f = File::create(file).expect("Unable to create file");
+    let f = File::create(&file).expect(format!("Couldn't create file {}", &file).as_ref());
     let mut f = BufWriter::new(f);
-    f.write_all(data.as_bytes()).expect("Unable to write data");
-}
-
-fn read_tmp_test_file<S: ToString>(file: S) -> String {
-    let file = file.to_string();
-    let file = format!("tests/tmp/{}", file);
-
-    let mut f = File::open(file).expect("file not found");
-    let mut contents = String::new();
-    f.read_to_string(&mut contents).expect(
-        "something went wrong reading the file",
+    f.write_all(data.as_bytes()).expect(
+        format!(
+            "Couldn't write to {}",
+            &file,
+        ).as_ref(),
     );
-    contents
 }
 
-fn delete_tmp_test_file<S: ToString>(file: S) {
+pub fn read_tmp_test_file<S: ToString>(file: S) -> Result<String, io::Error> {
     let file = file.to_string();
     let file = format!("tests/tmp/{}", file);
-    fs::remove_file(file).ok();
+
+    let mut f = File::open(&file)?;
+    let mut contents = String::new();
+    f.read_to_string(&mut contents)?;
+    Ok(contents)
 }
 
-fn establish_connection_to_worker() -> RobinResult<WorkerConnection> {
-    let mut con: WorkerConnection = establish()?;
+pub fn delete_tmp_test_file<S: ToString>(file: S) {
+    let file = file.to_string();
+    let file = format!("tests/tmp/{}", file);
+    fs::remove_file(&file).ok();
+}
+
+pub fn establish_connection_to_worker(config: Config) -> RobinResult<WorkerConnection> {
+    let mut con: WorkerConnection = establish(config)?;
     con.register(VerifyableJob)?;
+    con.register(PassSecondTime)?;
+    con.register(FailForever)?;
     Ok(con)
 }
 
-pub struct TestHelper;
-
-impl TestHelper {
-    pub fn new() -> TestHelper {
-        TestHelper
-    }
-
-    pub fn setup(&self, args: &VerifyableJobArgs) {
-        delete_tmp_test_file(args.file);
-    }
-
-    pub fn teardown(&self, args: &VerifyableJobArgs) {
-        delete_tmp_test_file(args.file);
-    }
-
-    pub fn spawn<F>(&mut self, f: F) -> JoinHandle<()>
-    where
-        F: 'static + FnOnce(WorkerConnection) + Send,
-    {
-        thread::spawn(move || {
-            let con = establish_connection_to_worker().expect("Failed to connect");
-            f(con)
-        })
-    }
-}
-
 pub trait TestConfig {
-    fn test_config() -> Self;
+    fn test_config(uuid: &str) -> Self;
 }
 
 impl TestConfig for Config {
-    fn test_config() -> Config {
+    fn test_config(uuid: &str) -> Config {
+        let redis_namespace = format!("robin_test_{}", uuid);
+
         Config {
-            timeout: 2,
-            loop_forever: false,
+            timeout: 1,
+            redis_namespace: redis_namespace,
+            repeat_on_timeout: false,
+            retry_count_limit: 4,
         }
+    }
+}
+
+pub struct PassSecondTime;
+
+impl Job for PassSecondTime {
+    fn name(&self) -> JobName {
+        JobName::from("PassSecondTime")
+    }
+
+    fn perform(&self, _con: &WorkerConnection, args: &str) -> JobResult {
+        let args: PassSecondTimeArgs = deserialize_arg(args)?;
+
+        let contents = args.file().map(|file| read_tmp_test_file(file));
+
+        match contents {
+            Some(Ok(s)) => {
+                if &s == "been_here" {
+                    args.file().map(|file| write_tmp_test_file(file, "OK"));
+                    Ok(())
+                } else {
+                    panic!(format!("File contained something different {}", s))
+                }
+            }
+            // File didn't exist
+            Some(Err(error)) => {
+                assert_eq!(error.kind(), io::ErrorKind::NotFound);
+                args.file().map(
+                    |file| write_tmp_test_file(file, "been_here"),
+                );
+
+                Err("This job is supposed to fail the first time".to_string())
+            }
+            None => Ok(()),
+        }
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug, Copy, Clone)]
+pub struct PassSecondTimeArgs<'a> {
+    pub file: &'a str,
+}
+
+impl<'a> WithTempFile for PassSecondTimeArgs<'a> {
+    fn file(&self) -> Option<&str> {
+        Some(self.file)
+    }
+}
+
+pub struct FailForever;
+
+impl Job for FailForever {
+    fn name(&self) -> JobName {
+        JobName::from("FailForever")
+    }
+
+    fn perform(&self, _con: &WorkerConnection, args: &str) -> JobResult {
+        let _: FailForeverArgs = deserialize_arg(args)?;
+        Err("Will always fail".to_string())
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug, Copy, Clone)]
+pub struct FailForeverArgs {}
+
+impl WithTempFile for FailForeverArgs {
+    fn file(&self) -> Option<&str> {
+        None
     }
 }

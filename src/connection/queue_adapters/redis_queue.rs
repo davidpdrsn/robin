@@ -1,10 +1,7 @@
 use error::*;
-use job::*;
-use worker::Config;
 use redis::{Client, Commands};
 use serde_json;
-use std::collections::HashMap;
-use super::EnqueuedJob;
+use super::{EnqueuedJob, NoJobDequeued, DequeueTimeout};
 use redis;
 
 pub struct RedisQueue {
@@ -13,53 +10,48 @@ pub struct RedisQueue {
 }
 
 impl RedisQueue {
-    pub fn new() -> RobinResult<Self> {
+    pub fn new_with_namespace(name: &str) -> RobinResult<Self> {
         let client = Client::open("redis://127.0.0.1/")?;
         let con = client.get_connection()?;
         Ok(RedisQueue {
             redis: con,
-            key: "__robin_queue__".to_string(),
+            key: format!("__{}__", name),
         })
     }
 
-    pub fn enqueue(&self, name: JobName, args: &str) -> RobinResult<()> {
-        let enq_job = EnqueuedJob {
-            name: name.0.to_string(),
-            args: args.to_string(),
-        };
+    pub fn enqueue(&self, enq_job: EnqueuedJob) -> RobinResult<()> {
         let data: String = json!(enq_job).to_string();
         let _: () = self.redis.rpush(&self.key, data)?;
 
         Ok(())
     }
 
-    pub fn dequeue<'a>(
-        &self,
-        jobs: &'a HashMap<JobName, Box<Job>>,
-        config: &Config,
-    ) -> RobinResult<(&'a Box<Job>, String)> {
-        let timeout_in_seconds = config.timeout;
+    pub fn dequeue<'a>(&self, timeout: &DequeueTimeout) -> Result<EnqueuedJob, NoJobDequeued> {
+        let timeout_in_seconds = timeout.0;
         let bulk: Vec<redis::Value> = self.redis.blpop(&self.key, timeout_in_seconds)?;
 
         match bulk.get(1) {
             Some(&redis::Value::Data(ref data)) => {
-                let data = String::from_utf8(data.to_vec()).unwrap();
-                let enq_job: EnqueuedJob = serde_json::from_str(&data).map_err(Error::from)?;
-
-                let args = enq_job.args;
-                let job = jobs.get(&JobName::from(enq_job.name.clone())).ok_or(
-                    Error::JobNotRegistered(enq_job.name.clone()),
-                )?;
-
-                Ok((job, args))
+                let data =
+                    String::from_utf8(data.to_vec()).expect("Didn't get valid UTF-8 from Redis");
+                serde_json::from_str(&data).map_err(NoJobDequeued::from)
             }
 
-            // we hit the timeout
-            None => self.dequeue(jobs, config),
+            None => Err(NoJobDequeued::BecauseTimeout),
 
-            _ => Err(Error::UnknownRedisError(
-                "List didn't hold what we were expecting".to_string(),
-            )),
+            _ => Err(NoJobDequeued::from(Error::UnknownRedisError(
+                "List didn't contain what we were expecting".to_string(),
+            ))),
         }
+    }
+
+    pub fn delete_all(&self) -> RobinResult<()> {
+        let _: () = self.redis.del(&self.key)?;
+        Ok(())
+    }
+
+    pub fn size(&self) -> RobinResult<usize> {
+        let size: usize = self.redis.llen(&self.key).map_err(Error::from)?;
+        Ok(size)
     }
 }

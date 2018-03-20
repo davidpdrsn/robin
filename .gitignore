@@ -1,4 +1,5 @@
-
 /target
 **/*.rs.bk
 Cargo.lock
+tests/tmp
+dump.rdb

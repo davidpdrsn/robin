@@ -1,46 +1,82 @@
 use connection::*;
-use std::default::Default;
+use job::*;
+use connection::queue_adapters::{NoJobDequeued, DequeueTimeout, RetryCount};
 
 pub fn boot(con: WorkerConnection) {
-    let config = Config::default();
-    boot_with_config(config, con);
-}
-
-pub fn boot_with_config(config: Config, con: WorkerConnection) {
     println!("Robin worker started!");
 
-    if config.loop_forever {
-        loop {
-            loop_once(&config, &con);
-        }
-    } else {
-        loop_once(&config, &con);
-    }
-}
-
-fn loop_once(config: &Config, con: &WorkerConnection) {
-    match con.dequeue(config) {
-        Ok((job, args)) => {
-            println!("Performing {}", job.name().0);
-            job.perform(&con, &args).expect("Job failed");
-        }
-        Err(err) => {
-            println!("Failed to dequeue job with error\n{:?}", err);
-            panic!()
+    loop {
+        match perform_job(&con, QueueIdentifier::Main) {
+            LoopControl::Break => break,
+            LoopControl::Continue => {}
         }
     }
 }
 
-pub struct Config {
-    pub timeout: usize,
-    pub loop_forever: bool,
+fn perform_job(con: &WorkerConnection, iden: QueueIdentifier) -> LoopControl {
+    match con.dequeue_from(iden, DequeueTimeout(con.config.timeout)) {
+        Ok((job, args, retry_count)) => {
+            match iden {
+                QueueIdentifier::Main => println!("Performing {}", job.name().0),
+                QueueIdentifier::Retry => {
+                    println!("Retying {}. Retry count is {:?}", job.name().0, retry_count)
+                }
+            };
+
+            let prev_count = retry_count;
+            let retry_count = prev_count.increment();
+
+            if retry_count.limit_reached(&con.config) {
+                println!(
+                    "Not retrying {} anymore. Retry count was {:?}",
+                    job.name().0,
+                    prev_count,
+                );
+
+                if con.config.repeat_on_timeout {
+                    LoopControl::Continue
+                } else {
+                    LoopControl::Break
+                }
+            } else {
+                perform_or_retry(con, job, &args, retry_count);
+                LoopControl::Continue
+            }
+        }
+
+        Err(NoJobDequeued::BecauseTimeout) => {
+            match iden {
+                QueueIdentifier::Main => perform_job(con, QueueIdentifier::Retry),
+                QueueIdentifier::Retry => {
+                    if con.config.repeat_on_timeout {
+                        LoopControl::Continue
+                    } else {
+                        LoopControl::Break
+                    }
+                }
+            }
+        }
+
+        Err(NoJobDequeued::BecauseError(err)) => {
+            panic!(format!("Failed to dequeue job with error\n{:?}", err));
+        }
+    }
 }
 
-impl Default for Config {
-    fn default() -> Config {
-        Config {
-            timeout: 30,
-            loop_forever: true,
+enum LoopControl {
+    Break,
+    Continue,
+}
+
+fn perform_or_retry(con: &WorkerConnection, job: &Box<Job>, args: &str, retry_count: RetryCount) {
+    let job_result = job.perform(&con, &args);
+
+    match job_result {
+        Ok(()) => {}
+        Err(_) => {
+            con.retry(job.name(), args, retry_count).expect(
+                "Failed to enqueue job into retry queue",
+            );
         }
     }
 }

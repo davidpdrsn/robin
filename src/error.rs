@@ -10,6 +10,8 @@ pub enum Error {
     JobAlreadyRegistered(JobName),
     JobNotRegistered(String),
 
+    JobFailed(String),
+
     IoError(io::Error),
 
     SerdeJsonError(serde_json::Error),
@@ -33,5 +35,19 @@ impl From<serde_json::Error> for Error {
 impl From<redis::RedisError> for Error {
     fn from(error: redis::RedisError) -> Error {
         Error::RedisError(error)
+    }
+}
+
+impl From<Error> for String {
+    fn from(error: Error) -> String {
+        match error {
+            Error::JobAlreadyRegistered(name) => format!("{:?} already registered", name),
+            Error::JobNotRegistered(name) => format!("{} not registered", name),
+            Error::JobFailed(msg) => format!("Job failed with message: {}", msg),
+            Error::IoError(err) => format!("Error::IoError : {}", err),
+            Error::SerdeJsonError(err) => format!("Error::SerdeJsonError : {}", err),
+            Error::RedisError(err) => format!("Error::RedisError : {}", err),
+            Error::UnknownRedisError(err) => format!("Error::UnknownRedisError : {}", err),
+        }
     }
 }
