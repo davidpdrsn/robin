@@ -1,5 +1,6 @@
 use error::*;
 use job::*;
+use worker::Config;
 use redis::{Client, Commands};
 use serde_json;
 use std::collections::HashMap;
@@ -35,8 +36,9 @@ impl RedisQueue {
     pub fn dequeue<'a>(
         &self,
         jobs: &'a HashMap<JobName, Box<Job>>,
+        config: &Config,
     ) -> RobinResult<(&'a Box<Job>, String)> {
-        let timeout_in_seconds = 30;
+        let timeout_in_seconds = config.timeout;
         let bulk: Vec<redis::Value> = self.redis.blpop(&self.key, timeout_in_seconds)?;
 
         match bulk.get(1) {
@@ -53,7 +55,7 @@ impl RedisQueue {
             }
 
             // we hit the timeout
-            None => self.dequeue(jobs),
+            None => self.dequeue(jobs, config),
 
             _ => Err(Error::UnknownRedisError(
                 "List didn't hold what we were expecting".to_string(),

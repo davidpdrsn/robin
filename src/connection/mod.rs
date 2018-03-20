@@ -2,7 +2,7 @@ mod queue_adapters;
 
 use error::*;
 use job::*;
-use job::JobName;
+use worker::Config;
 use self::queue_adapters::redis_queue::RedisQueue;
 use std::collections::HashMap;
 
@@ -31,8 +31,8 @@ impl WorkerConnection {
         self.queue.enqueue(name, args)
     }
 
-    pub fn dequeue<'a>(&'a self) -> RobinResult<(&'a Box<Job>, String)> {
-        self.queue.dequeue(&self.jobs)
+    pub fn dequeue<'a>(&'a self, config: &Config) -> RobinResult<(&'a Box<Job>, String)> {
+        self.queue.dequeue(&self.jobs, config)
     }
 }
 
