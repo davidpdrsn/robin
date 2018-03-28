@@ -70,8 +70,8 @@ impl Job for VerifyableJob {
         JobName::from("VerifyableJob")
     }
 
-    fn perform(&self, _con: &WorkerConnection, args: &str) -> JobResult {
-        let args: VerifyableJobArgs = deserialize_arg(args)?;
+    fn perform(&self, _con: &WorkerConnection, args: &Args) -> JobResult {
+        let args: VerifyableJobArgs = args.deserialize()?;
         write_tmp_test_file(args.file, args.file);
         Ok(())
     }
@@ -140,8 +140,8 @@ impl Job for PassSecondTime {
         JobName::from("PassSecondTime")
     }
 
-    fn perform(&self, _con: &WorkerConnection, args: &str) -> JobResult {
-        let args: PassSecondTimeArgs = deserialize_arg(args)?;
+    fn perform(&self, _con: &WorkerConnection, args: &Args) -> JobResult {
+        let args: PassSecondTimeArgs = args.deserialize()?;
 
         let contents = args.file().map(|file| read_tmp_test_file(file));
 
@@ -186,8 +186,8 @@ impl Job for FailForever {
         JobName::from("FailForever")
     }
 
-    fn perform(&self, _con: &WorkerConnection, args: &str) -> JobResult {
-        let _: FailForeverArgs = deserialize_arg(args)?;
+    fn perform(&self, _con: &WorkerConnection, args: &Args) -> JobResult {
+        let _: FailForeverArgs = args.deserialize()?;
         Err("Will always fail".to_string())
     }
 }

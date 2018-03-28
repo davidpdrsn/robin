@@ -7,8 +7,29 @@ use connection::queue_adapters::RetryCount;
 
 pub type JobResult<'a> = Result<(), String>;
 
+#[derive(Serialize, Deserialize, Debug)]
+pub struct Args {
+    pub json: String,
+}
+
+impl Args {
+    pub fn to_json(&self) -> RobinResult<String> {
+        serde_json::to_string(&self).map_err(Error::from)
+    }
+
+    pub fn deserialize<'a, T: Deserialize<'a>>(&'a self) -> RobinResult<T> {
+        match serde_json::from_str(&self.json) {
+            Ok(v) => Ok(v),
+            Err(e) => {
+                let msg = format!("Failed deserializing {:?}\nSerde error: {:?}", self.json, e);
+                Err(Error::JobFailed(msg))
+            }
+        }
+    }
+}
+
 pub trait Job {
-    fn perform(&self, con: &WorkerConnection, args: &str) -> JobResult;
+    fn perform(&self, con: &WorkerConnection, args: &Args) -> JobResult;
     fn name(&self) -> JobName;
 }
 
@@ -40,18 +61,9 @@ where
     }
 }
 
-fn serialize_arg<T: Serialize>(value: T) -> RobinResult<String> {
-    serde_json::to_string(&value).map_err(Error::from)
-}
-
-pub fn deserialize_arg<'a, T: Deserialize<'a>>(args: &'a str) -> RobinResult<T> {
-    match serde_json::from_str(args) {
-        Ok(v) => Ok(v),
-        Err(e) => {
-            let msg = format!("Failed deserializing {:?}\nSerde error: {:?}", args, e);
-            Err(Error::JobFailed(msg))
-        }
-    }
+fn serialize_arg<T: Serialize>(value: T) -> RobinResult<Args> {
+    let json = serde_json::to_string(&value).map_err(Error::from)?;
+    Ok(Args { json })
 }
 
 #[derive(Eq, PartialEq, Hash, Debug)]

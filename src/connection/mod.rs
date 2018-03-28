@@ -33,25 +33,25 @@ impl WorkerConnection {
         &self,
         iden: QueueIdentifier,
         name: JobName,
-        args: &str,
+        args: &Args,
         retry_count: RetryCount,
     ) -> RobinResult<()> {
         let enq_job = EnqueuedJob {
             name: name.0.to_string(),
-            args: args.to_string(),
+            args: args.to_json().expect("todo"),
             retry_count: retry_count,
         };
 
         match iden {
             QueueIdentifier::Main => {
-                println!("Enqueued \"{}\" with {}", name.0, args);
+                println!("Enqueued \"{}\" with {}", name.0, args.json);
                 self.main_queue.enqueue(enq_job)
             }
             QueueIdentifier::Retry => self.retry_queue.enqueue(enq_job),
         }
     }
 
-    pub fn retry(&self, name: JobName, args: &str, retry_count: RetryCount) -> RobinResult<()> {
+    pub fn retry(&self, name: JobName, args: &Args, retry_count: RetryCount) -> RobinResult<()> {
         self.enqueue_to(QueueIdentifier::Retry, name, args, retry_count)
     }
 

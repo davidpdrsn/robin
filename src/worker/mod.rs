@@ -69,12 +69,14 @@ enum LoopControl {
 }
 
 fn perform_or_retry(con: &WorkerConnection, job: &Box<Job>, args: &str, retry_count: RetryCount) {
+    use serde_json;
+    let args = serde_json::from_str(args).expect("todo");
     let job_result = job.perform(&con, &args);
 
     match job_result {
         Ok(()) => {}
         Err(_) => {
-            con.retry(job.name(), args, retry_count).expect(
+            con.retry(job.name(), &args, retry_count).expect(
                 "Failed to enqueue job into retry queue",
             );
         }
