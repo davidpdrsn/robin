@@ -5,7 +5,7 @@ use redis;
 use error::*;
 use config::Config;
 
-#[derive(Deserialize, Serialize, Debug)]
+#[derive(Deserialize, Serialize, Debug, Copy, Clone)]
 pub enum RetryCount {
     NeverRetried,
     Count(u32),
@@ -58,4 +58,5 @@ impl From<Error> for NoJobDequeued {
     }
 }
 
+#[derive(Debug, Copy, Clone)]
 pub struct DequeueTimeout(pub usize);

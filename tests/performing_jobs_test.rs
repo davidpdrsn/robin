@@ -15,8 +15,10 @@ fn enqueuing_and_performing_jobs() {
 
     t.setup(&args);
 
-    let client = t.spawn(move |con| VerifyableJob.perform_later(&con, &args).unwrap());
-    let worker = t.spawn(move |con| robin::worker::boot(con));
+    let client = t.spawn_client(move |con| VerifyableJob.perform_later(&con, &args).unwrap());
+    let worker = t.spawn_worker(|config| {
+        robin::worker::boot(&config, || establish_connection_to_worker(config.clone()))
+    });
 
     client.join().unwrap();
     worker.join().unwrap();
@@ -38,13 +40,15 @@ fn running_multiple_jobs() {
     t.setup(&args_two);
     t.setup(&args_three);
 
-    let client = t.spawn(move |con| {
+    let client = t.spawn_client(move |con| {
         VerifyableJob.perform_later(&con, &args_one).unwrap();
         VerifyableJob.perform_later(&con, &args_two).unwrap();
         VerifyableJob.perform_later(&con, &args_three).unwrap();
     });
 
-    let worker = t.spawn(move |con| robin::worker::boot(con));
+    let worker = t.spawn_worker(|config| {
+        robin::worker::boot(&config, || establish_connection_to_worker(config.clone()))
+    });
 
     client.join().unwrap();
     worker.join().unwrap();
@@ -67,13 +71,15 @@ fn job_fails_then_gets_retried_and_passes() {
 
     t.setup(&args);
 
-    let client = t.spawn(move |con| {
+    let client = t.spawn_client(move |con| {
         PassSecondTime.perform_later(&con, &args).expect(
             "Failed to enqueue job",
         );
     });
 
-    let worker = t.spawn(move |con| robin::worker::boot(con));
+    let worker = t.spawn_worker(|config| {
+        robin::worker::boot(&config, || establish_connection_to_worker(config.clone()))
+    });
 
     client.join().expect("failed to end client");
     worker.join().expect("failed to end worker");
@@ -92,13 +98,15 @@ fn job_doesnt_get_retried_forever() {
 
     t.setup(&args);
 
-    let client = t.spawn(move |con| {
+    let client = t.spawn_client(move |con| {
         FailForever.perform_later(&con, &args).expect(
             "Failed to enqueue job",
         );
     });
 
-    let worker = t.spawn(move |con| robin::worker::boot(con));
+    let worker = t.spawn_worker(|config| {
+        robin::worker::boot(&config, || establish_connection_to_worker(config.clone()))
+    });
 
     client.join().expect("failed to end client");
     worker.join().expect("failed to end worker");

@@ -28,7 +28,7 @@ impl TestHelper {
         self.setup(args);
     }
 
-    pub fn spawn<F>(&mut self, f: F) -> JoinHandle<()>
+    pub fn spawn_client<F>(&mut self, f: F) -> JoinHandle<()>
     where
         F: 'static + FnOnce(WorkerConnection) + Send,
     {
@@ -38,6 +38,14 @@ impl TestHelper {
                 .expect("Failed to connect");
             f(con)
         })
+    }
+
+    pub fn spawn_worker<F>(&mut self, f: F) -> JoinHandle<()>
+    where
+        F: 'static + FnOnce(&Config) + Send,
+    {
+        let uuid = self.uuid.clone();
+        thread::spawn(move || f(&Config::test_config(&uuid)))
     }
 }
 
@@ -129,6 +137,7 @@ impl TestConfig for Config {
             redis_namespace: redis_namespace,
             repeat_on_timeout: false,
             retry_count_limit: 4,
+            worker_count: 1,
         }
     }
 }

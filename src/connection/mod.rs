@@ -10,14 +10,14 @@ use std::collections::HashMap;
 pub struct WorkerConnection {
     main_queue: RedisQueue,
     retry_queue: RedisQueue,
-    jobs: HashMap<JobName, Box<Job>>,
+    jobs: HashMap<JobName, Box<Job + Send>>,
     pub config: Config,
 }
 
 impl WorkerConnection {
     pub fn register<T>(&mut self, job: T) -> RobinResult<()>
     where
-        T: 'static + Job,
+        T: 'static + Job + Send,
     {
         let name = job.name();
 
@@ -59,7 +59,7 @@ impl WorkerConnection {
         &'a self,
         iden: QueueIdentifier,
         timeout: DequeueTimeout,
-    ) -> Result<(&'a Box<Job>, String, RetryCount), NoJobDequeued> {
+    ) -> Result<(&'a Box<Job + Send>, String, RetryCount), NoJobDequeued> {
         let enq_job = match iden {
             QueueIdentifier::Main => self.main_queue.dequeue(&timeout),
             QueueIdentifier::Retry => self.retry_queue.dequeue(&timeout),
@@ -115,7 +115,7 @@ pub fn establish(config: Config) -> RobinResult<WorkerConnection> {
     })
 }
 
-#[derive(Copy, Clone)]
+#[derive(Debug, Copy, Clone)]
 pub enum QueueIdentifier {
     Main,
     Retry,
@@ -127,5 +127,18 @@ impl QueueIdentifier {
             QueueIdentifier::Main => format!("main_{}", namespace),
             QueueIdentifier::Retry => format!("retry_{}", namespace),
         }
+    }
+}
+
+pub trait ConnectionProducer {
+    fn new_connection(&self) -> RobinResult<WorkerConnection>;
+}
+
+impl<T> ConnectionProducer for T
+where
+    T: Fn() -> RobinResult<WorkerConnection>,
+{
+    fn new_connection(&self) -> RobinResult<WorkerConnection> {
+        self()
     }
 }
