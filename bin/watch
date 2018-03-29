@@ -3,6 +3,6 @@
 RUST_BACKTRACE=1 cargo watch \
   --ignore "tests/tmp/*" \
   --clear \
-  -x check \
-  -x test \
-  -x doc
+  -x "check --tests" \
+  -x "check --lib" \
+  -s "cargo fmt --all -- --write-mode=diff"
