@@ -1,9 +1,9 @@
 extern crate serde_json;
 
 use serde::{Deserialize, Serialize};
-use connection::*;
-use error::*;
-use connection::queue_adapters::RetryCount;
+use connection::WorkerConnection;
+use connection::queue_adapters::{QueueIdentifier, RetryCount};
+use error::{Error, RobinResult};
 
 pub type JobResult<'a> = Result<(), String>;
 

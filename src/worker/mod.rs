@@ -1,6 +1,6 @@
 use connection::*;
 use job::*;
-use connection::queue_adapters::{DequeueTimeout, NoJobDequeued, RetryCount};
+use connection::queue_adapters::{DequeueTimeout, NoJobDequeued, QueueIdentifier, RetryCount};
 use connection::ConnectionProducer;
 use std::thread::{self, JoinHandle};
 use config::Config;

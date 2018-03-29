@@ -4,7 +4,7 @@ use config::Config;
 use error::*;
 use job::*;
 use self::queue_adapters::redis_queue::RedisQueue;
-use self::queue_adapters::{DequeueTimeout, EnqueuedJob, NoJobDequeued, RetryCount};
+use self::queue_adapters::{DequeueTimeout, EnqueuedJob, NoJobDequeued, QueueIdentifier, RetryCount};
 use std::collections::HashMap;
 
 pub struct WorkerConnection {
@@ -113,21 +113,6 @@ pub fn establish(config: Config) -> RobinResult<WorkerConnection> {
             }
         })
     })
-}
-
-#[derive(Debug, Copy, Clone)]
-pub enum QueueIdentifier {
-    Main,
-    Retry,
-}
-
-impl QueueIdentifier {
-    fn redis_queue_name(&self, namespace: &str) -> String {
-        match *self {
-            QueueIdentifier::Main => format!("main_{}", namespace),
-            QueueIdentifier::Retry => format!("retry_{}", namespace),
-        }
-    }
 }
 
 pub trait ConnectionProducer {

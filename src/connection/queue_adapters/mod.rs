@@ -60,3 +60,18 @@ impl From<Error> for NoJobDequeued {
 
 #[derive(Debug, Copy, Clone)]
 pub struct DequeueTimeout(pub usize);
+
+#[derive(Debug, Copy, Clone)]
+pub enum QueueIdentifier {
+    Main,
+    Retry,
+}
+
+impl QueueIdentifier {
+    pub fn redis_queue_name(&self, namespace: &str) -> String {
+        match *self {
+            QueueIdentifier::Main => format!("main_{}", namespace),
+            QueueIdentifier::Retry => format!("retry_{}", namespace),
+        }
+    }
+}
