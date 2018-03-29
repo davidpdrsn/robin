@@ -1,6 +1,6 @@
 extern crate serde_json;
 
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 use connection::*;
 use error::*;
 use connection::queue_adapters::RetryCount;

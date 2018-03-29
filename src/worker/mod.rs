@@ -1,6 +1,6 @@
 use connection::*;
 use job::*;
-use connection::queue_adapters::{NoJobDequeued, DequeueTimeout, RetryCount};
+use connection::queue_adapters::{DequeueTimeout, NoJobDequeued, RetryCount};
 use connection::ConnectionProducer;
 use std::thread::{self, JoinHandle};
 use config::Config;
@@ -34,13 +34,12 @@ where
 
         println!(
             "Robin worker {}/{} started",
-            worker_number.number,
-            worker_count
+            worker_number.number, worker_count
         );
 
-        let con = connection_producer.new_connection().expect(
-            "Failed to create new connection",
-        );
+        let con = connection_producer
+            .new_connection()
+            .expect("Failed to create new connection");
 
         handles.push(spawn_worker(con, worker_number));
     }
@@ -83,21 +82,17 @@ fn perform_job(
                 }
             } else {
                 match iden {
-                    QueueIdentifier::Main => {
-                        println!(
-                            "Performing {} on worker {}",
-                            job.name().0,
-                            worker_number.description()
-                        )
-                    }
-                    QueueIdentifier::Retry => {
-                        println!(
-                            "Retying {} on worker {}. Retry count is {:?}",
-                            job.name().0,
-                            worker_number.description(),
-                            retry_count
-                        )
-                    }
+                    QueueIdentifier::Main => println!(
+                        "Performing {} on worker {}",
+                        job.name().0,
+                        worker_number.description()
+                    ),
+                    QueueIdentifier::Retry => println!(
+                        "Retying {} on worker {}. Retry count is {:?}",
+                        job.name().0,
+                        worker_number.description(),
+                        retry_count
+                    ),
                 };
 
                 perform_or_retry(con, job, &args, retry_count, worker_number);
@@ -106,18 +101,16 @@ fn perform_job(
             }
         }
 
-        Err(NoJobDequeued::BecauseTimeout) => {
-            match iden {
-                QueueIdentifier::Main => perform_job(con, QueueIdentifier::Retry, worker_number),
-                QueueIdentifier::Retry => {
-                    if con.config.repeat_on_timeout {
-                        LoopControl::Continue
-                    } else {
-                        LoopControl::Break
-                    }
+        Err(NoJobDequeued::BecauseTimeout) => match iden {
+            QueueIdentifier::Main => perform_job(con, QueueIdentifier::Retry, worker_number),
+            QueueIdentifier::Retry => {
+                if con.config.repeat_on_timeout {
+                    LoopControl::Continue
+                } else {
+                    LoopControl::Break
                 }
             }
-        }
+        },
 
         Err(NoJobDequeued::BecauseError(err)) => {
             panic!(format!("Failed to dequeue job with error\n{:?}", err));
@@ -141,13 +134,14 @@ fn perform_or_retry(
     let job_result = job.perform(&con, &args);
 
     match job_result {
-        Ok(()) => {
-            println!("Performed {} on worker {}", job.name().0, worker_number.description())
-        }
+        Ok(()) => println!(
+            "Performed {} on worker {}",
+            job.name().0,
+            worker_number.description()
+        ),
         Err(_) => {
-            con.retry(job.name(), &args, retry_count).expect(
-                "Failed to enqueue job into retry queue",
-            );
+            con.retry(job.name(), &args, retry_count)
+                .expect("Failed to enqueue job into retry queue");
         }
     }
 }

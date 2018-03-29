@@ -2,7 +2,7 @@ pub use robin::prelude::*;
 
 use std::thread::{self, JoinHandle};
 use std::fs::{self, File};
-use std::io::{Write, BufWriter};
+use std::io::{BufWriter, Write};
 use std::io::prelude::*;
 use std::io;
 use uuid::Uuid;
@@ -13,10 +13,14 @@ pub struct TestHelper {
 
 impl TestHelper {
     pub fn new() -> TestHelper {
-        TestHelper { uuid: Uuid::new_v4().hyphenated().to_string() }
+        TestHelper {
+            uuid: Uuid::new_v4().hyphenated().to_string(),
+        }
     }
 
     pub fn setup<T: WithTempFile>(&self, args: &T) {
+        fs::create_dir("tests/tmp").ok();
+
         let con = establish_connection_to_worker(Config::test_config(&self.uuid))
             .expect("Failed to connect");
         con.delete_all().unwrap();
@@ -92,12 +96,8 @@ pub fn write_tmp_test_file<S: ToString>(file: S, data: S) {
 
     let f = File::create(&file).expect(format!("Couldn't create file {}", &file).as_ref());
     let mut f = BufWriter::new(f);
-    f.write_all(data.as_bytes()).expect(
-        format!(
-            "Couldn't write to {}",
-            &file,
-        ).as_ref(),
-    );
+    f.write_all(data.as_bytes())
+        .expect(format!("Couldn't write to {}", &file,).as_ref());
 }
 
 pub fn read_tmp_test_file<S: ToString>(file: S) -> Result<String, io::Error> {
@@ -166,9 +166,8 @@ impl Job for PassSecondTime {
             // File didn't exist
             Some(Err(error)) => {
                 assert_eq!(error.kind(), io::ErrorKind::NotFound);
-                args.file().map(
-                    |file| write_tmp_test_file(file, "been_here"),
-                );
+                args.file()
+                    .map(|file| write_tmp_test_file(file, "been_here"));
 
                 Err("This job is supposed to fail the first time".to_string())
             }

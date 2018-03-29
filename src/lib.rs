@@ -1,17 +1,12 @@
-#![deny(missing_copy_implementations,
-        trivial_casts,
-        trivial_numeric_casts,
-        unsafe_code,
-        unstable_features,
-        unused_import_braces,
-        unused_qualifications)]
+#![deny(missing_copy_implementations, trivial_casts, trivial_numeric_casts, unsafe_code,
+        unstable_features, unused_import_braces, unused_qualifications)]
 
+extern crate redis;
 extern crate serde;
 #[macro_use]
-extern crate serde_json;
-#[macro_use]
 extern crate serde_derive;
-extern crate redis;
+#[macro_use]
+extern crate serde_json;
 
 pub mod connection;
 pub mod error;
@@ -20,9 +15,9 @@ pub mod worker;
 pub mod config;
 
 pub mod prelude {
-    pub use job::{Args, Job, PerformJob, JobName, JobResult};
+    pub use job::{Args, Job, JobName, JobResult, PerformJob};
     pub use error::RobinResult;
-    pub use connection::{WorkerConnection, establish, ConnectionProducer};
+    pub use connection::{establish, ConnectionProducer, WorkerConnection};
     pub use worker::boot;
     pub use config::Config;
 }

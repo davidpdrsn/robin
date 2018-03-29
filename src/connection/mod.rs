@@ -1,10 +1,10 @@
 pub mod queue_adapters;
 
+use config::Config;
 use error::*;
 use job::*;
-use config::Config;
 use self::queue_adapters::redis_queue::RedisQueue;
-use self::queue_adapters::{NoJobDequeued, EnqueuedJob, DequeueTimeout, RetryCount};
+use self::queue_adapters::{DequeueTimeout, EnqueuedJob, NoJobDequeued, RetryCount};
 use std::collections::HashMap;
 
 pub struct WorkerConnection {
@@ -77,9 +77,9 @@ impl WorkerConnection {
     }
 
     pub fn delete_all(&self) -> RobinResult<()> {
-        self.main_queue.delete_all().and_then(|_| {
-            self.retry_queue.delete_all()
-        })
+        self.main_queue
+            .delete_all()
+            .and_then(|_| self.retry_queue.delete_all())
     }
 
     pub fn size(&self, iden: QueueIdentifier) -> RobinResult<usize> {
@@ -98,13 +98,13 @@ impl WorkerConnection {
 }
 
 pub fn establish(config: Config) -> RobinResult<WorkerConnection> {
-    // I would like one >>= pls
-    RedisQueue::new_with_namespace(&QueueIdentifier::Main.redis_queue_name(
-        &config.redis_namespace,
-    )).and_then(|main_redis_queue| {
-        RedisQueue::new_with_namespace(&QueueIdentifier::Retry.redis_queue_name(
-            &config.redis_namespace,
-        )).map(|retry_redis_queue| {
+    let main_queue_namespace = QueueIdentifier::Main.redis_queue_name(&config.redis_namespace);
+
+    RedisQueue::new_with_namespace(&main_queue_namespace).and_then(|main_redis_queue| {
+        let retry_queue_namespace =
+            QueueIdentifier::Retry.redis_queue_name(&config.redis_namespace);
+
+        RedisQueue::new_with_namespace(&retry_queue_namespace).map(|retry_redis_queue| {
             WorkerConnection {
                 main_queue: main_redis_queue,
                 retry_queue: retry_redis_queue,

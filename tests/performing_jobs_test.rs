@@ -11,7 +11,9 @@ use test_helper::*;
 fn enqueuing_and_performing_jobs() {
     let mut t = TestHelper::new();
 
-    let args = VerifyableJobArgs { file: "enqueuing_and_performing_jobs" };
+    let args = VerifyableJobArgs {
+        file: "enqueuing_and_performing_jobs",
+    };
 
     t.setup(&args);
 
@@ -32,9 +34,15 @@ fn enqueuing_and_performing_jobs() {
 fn running_multiple_jobs() {
     let mut t = TestHelper::new();
 
-    let args_one = VerifyableJobArgs { file: "running_two_jobs_one" };
-    let args_two = VerifyableJobArgs { file: "running_two_jobs_two" };
-    let args_three = VerifyableJobArgs { file: "running_two_jobs_three" };
+    let args_one = VerifyableJobArgs {
+        file: "running_two_jobs_one",
+    };
+    let args_two = VerifyableJobArgs {
+        file: "running_two_jobs_two",
+    };
+    let args_three = VerifyableJobArgs {
+        file: "running_two_jobs_three",
+    };
 
     t.setup(&args_one);
     t.setup(&args_two);
@@ -72,9 +80,9 @@ fn job_fails_then_gets_retried_and_passes() {
     t.setup(&args);
 
     let client = t.spawn_client(move |con| {
-        PassSecondTime.perform_later(&con, &args).expect(
-            "Failed to enqueue job",
-        );
+        PassSecondTime
+            .perform_later(&con, &args)
+            .expect("Failed to enqueue job");
     });
 
     let worker = t.spawn_worker(|config| {
@@ -99,9 +107,9 @@ fn job_doesnt_get_retried_forever() {
     t.setup(&args);
 
     let client = t.spawn_client(move |con| {
-        FailForever.perform_later(&con, &args).expect(
-            "Failed to enqueue job",
-        );
+        FailForever
+            .perform_later(&con, &args)
+            .expect("Failed to enqueue job");
     });
 
     let worker = t.spawn_worker(|config| {

@@ -1,7 +1,7 @@
 use error::*;
 use redis::{Client, Commands};
 use serde_json;
-use super::{EnqueuedJob, NoJobDequeued, DequeueTimeout};
+use super::{DequeueTimeout, EnqueuedJob, NoJobDequeued};
 use redis;
 
 pub struct RedisQueue {

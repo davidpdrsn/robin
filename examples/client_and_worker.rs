@@ -1,6 +1,6 @@
+extern crate robin;
 #[macro_use]
 extern crate serde_derive;
-extern crate robin;
 
 use robin::prelude::*;
 use std::env;

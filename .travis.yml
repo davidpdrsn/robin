@@ -1,0 +1,12 @@
+language: rust
+rust:
+  - stable
+cache: cargo
+before_script:
+  - rustup component add rustfmt-preview
+script:
+  - cargo fmt --all -- --write-mode=diff
+  - cargo build --verbose --all
+  - cargo test --verbose --all
+services:
+  - redis-server
