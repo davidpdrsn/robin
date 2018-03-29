@@ -1,7 +1,7 @@
 use error::*;
 use redis::{Client, Commands};
 use serde_json;
-use super::{DequeueTimeout, EnqueuedJob, NoJobDequeued};
+use super::{DequeueTimeout, EnqueuedJob, NoJobDequeued, QueueIdentifier};
 use redis;
 
 pub struct RedisQueue {
@@ -15,20 +15,24 @@ impl RedisQueue {
         let con = client.get_connection()?;
         Ok(RedisQueue {
             redis: con,
-            key: format!("__{}__", name),
+            key: name.to_string(),
         })
     }
 
-    pub fn enqueue(&self, enq_job: EnqueuedJob) -> RobinResult<()> {
+    pub fn enqueue(&self, enq_job: EnqueuedJob, iden: QueueIdentifier) -> RobinResult<()> {
         let data: String = json!(enq_job).to_string();
-        let _: () = self.redis.rpush(&self.key, data)?;
+        let _: () = self.redis.rpush(&self.key(iden), data)?;
 
         Ok(())
     }
 
-    pub fn dequeue<'a>(&self, timeout: &DequeueTimeout) -> Result<EnqueuedJob, NoJobDequeued> {
+    pub fn dequeue<'a>(
+        &self,
+        timeout: &DequeueTimeout,
+        iden: QueueIdentifier,
+    ) -> Result<EnqueuedJob, NoJobDequeued> {
         let timeout_in_seconds = timeout.0;
-        let bulk: Vec<redis::Value> = self.redis.blpop(&self.key, timeout_in_seconds)?;
+        let bulk: Vec<redis::Value> = self.redis.blpop(&self.key(iden), timeout_in_seconds)?;
 
         match bulk.get(1) {
             Some(&redis::Value::Data(ref data)) => {
@@ -45,13 +49,17 @@ impl RedisQueue {
         }
     }
 
-    pub fn delete_all(&self) -> RobinResult<()> {
-        let _: () = self.redis.del(&self.key)?;
+    pub fn delete_all(&self, iden: QueueIdentifier) -> RobinResult<()> {
+        let _: () = self.redis.del(&self.key(iden))?;
         Ok(())
     }
 
-    pub fn size(&self) -> RobinResult<usize> {
-        let size: usize = self.redis.llen(&self.key).map_err(Error::from)?;
+    pub fn size(&self, iden: QueueIdentifier) -> RobinResult<usize> {
+        let size: usize = self.redis.llen(&self.key(iden)).map_err(Error::from)?;
         Ok(size)
+    }
+
+    fn key(&self, iden: QueueIdentifier) -> String {
+        format!("{}_{}", self.key, iden.redis_queue_name())
     }
 }

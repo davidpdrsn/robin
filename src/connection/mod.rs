@@ -8,8 +8,7 @@ use self::queue_adapters::{DequeueTimeout, EnqueuedJob, NoJobDequeued, QueueIden
 use std::collections::HashMap;
 
 pub struct WorkerConnection {
-    main_queue: RedisQueue,
-    retry_queue: RedisQueue,
+    queue: RedisQueue,
     jobs: HashMap<JobName, Box<Job + Send>>,
     pub config: Config,
 }
@@ -45,9 +44,9 @@ impl WorkerConnection {
         match iden {
             QueueIdentifier::Main => {
                 println!("Enqueued \"{}\" with {}", name.0, args.json);
-                self.main_queue.enqueue(enq_job)
+                self.queue.enqueue(enq_job, iden)
             }
-            QueueIdentifier::Retry => self.retry_queue.enqueue(enq_job),
+            QueueIdentifier::Retry => self.queue.enqueue(enq_job, iden),
         }
     }
 
@@ -60,10 +59,7 @@ impl WorkerConnection {
         iden: QueueIdentifier,
         timeout: DequeueTimeout,
     ) -> Result<(&'a Box<Job + Send>, String, RetryCount), NoJobDequeued> {
-        let enq_job = match iden {
-            QueueIdentifier::Main => self.main_queue.dequeue(&timeout),
-            QueueIdentifier::Retry => self.retry_queue.dequeue(&timeout),
-        }?;
+        let enq_job = self.queue.dequeue(&timeout, iden)?;
 
         let args = enq_job.args;
         let name = enq_job.name;
@@ -77,41 +73,26 @@ impl WorkerConnection {
     }
 
     pub fn delete_all(&self) -> RobinResult<()> {
-        self.main_queue
-            .delete_all()
-            .and_then(|_| self.retry_queue.delete_all())
+        for iden in QueueIdentifier::all_variants() {
+            self.queue.delete_all(iden)?;
+        }
+        Ok(())
     }
 
     pub fn size(&self, iden: QueueIdentifier) -> RobinResult<usize> {
-        match iden {
-            QueueIdentifier::Main => self.main_queue.size(),
-            QueueIdentifier::Retry => self.retry_queue.size(),
-        }
+        self.queue.size(iden)
     }
 
     pub fn is_queue_empty(&self, iden: QueueIdentifier) -> RobinResult<bool> {
-        match iden {
-            QueueIdentifier::Main => self.main_queue.size().map(|size| size == 0),
-            QueueIdentifier::Retry => self.retry_queue.size().map(|size| size == 0),
-        }
+        self.queue.size(iden).map(|size| size == 0)
     }
 }
 
 pub fn establish(config: Config) -> RobinResult<WorkerConnection> {
-    let main_queue_namespace = QueueIdentifier::Main.redis_queue_name(&config.redis_namespace);
-
-    RedisQueue::new_with_namespace(&main_queue_namespace).and_then(|main_redis_queue| {
-        let retry_queue_namespace =
-            QueueIdentifier::Retry.redis_queue_name(&config.redis_namespace);
-
-        RedisQueue::new_with_namespace(&retry_queue_namespace).map(|retry_redis_queue| {
-            WorkerConnection {
-                main_queue: main_redis_queue,
-                retry_queue: retry_redis_queue,
-                jobs: HashMap::new(),
-                config: config,
-            }
-        })
+    RedisQueue::new_with_namespace(&config.redis_namespace).map(|redis_queue| WorkerConnection {
+        queue: redis_queue,
+        jobs: HashMap::new(),
+        config: config,
     })
 }
 
