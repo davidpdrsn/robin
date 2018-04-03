@@ -1,3 +1,4 @@
+#[macro_use]
 extern crate robin;
 #[macro_use]
 extern crate serde_derive;
@@ -39,13 +40,10 @@ fn establish_connection_to_worker(config: Config) -> RobinResult<WorkerConnectio
     Ok(con)
 }
 
+#[derive(Enqueueable)]
 struct MyJob;
 
 impl Job for MyJob {
-    fn name(&self) -> JobName {
-        JobName::from("MyJob")
-    }
-
     fn perform(&self, _con: &WorkerConnection, args: &Args) -> JobResult {
         let args: JobArgs = args.deserialize()?;
         println!("Job performed with {:?}", args);

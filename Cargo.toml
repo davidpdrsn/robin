@@ -14,7 +14,8 @@ serde_derive = "1.0"
 serde_json = "1.0.11"
 redis = "0.8.0"
 uuid = { version = "0.6", features = ["v4"] }
-enum-each-variant-derive = "0.1.2"
+enum-each-variant-derive = { path = "crates/enum-each-variant-derive" }
+derive-enqueueable = { path = "crates/derive-enqueueable" }
 
 [lib]
 name = "robin"

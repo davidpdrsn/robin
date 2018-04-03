@@ -68,6 +68,7 @@ impl<'a> WithTempFile for VerifyableJobArgs<'a> {
     }
 }
 
+#[derive(Enqueueable)]
 pub struct VerifyableJob;
 
 impl VerifyableJob {
@@ -78,10 +79,6 @@ impl VerifyableJob {
 }
 
 impl Job for VerifyableJob {
-    fn name(&self) -> JobName {
-        JobName::from("VerifyableJob")
-    }
-
     fn perform(&self, _con: &WorkerConnection, args: &Args) -> JobResult {
         let args: VerifyableJobArgs = args.deserialize()?;
         write_tmp_test_file(args.file, args.file);
@@ -142,13 +139,10 @@ impl TestConfig for Config {
     }
 }
 
+#[derive(Enqueueable)]
 pub struct PassSecondTime;
 
 impl Job for PassSecondTime {
-    fn name(&self) -> JobName {
-        JobName::from("PassSecondTime")
-    }
-
     fn perform(&self, _con: &WorkerConnection, args: &Args) -> JobResult {
         let args: PassSecondTimeArgs = args.deserialize()?;
 
@@ -187,13 +181,10 @@ impl<'a> WithTempFile for PassSecondTimeArgs<'a> {
     }
 }
 
+#[derive(Enqueueable)]
 pub struct FailForever;
 
 impl Job for FailForever {
-    fn name(&self) -> JobName {
-        JobName::from("FailForever")
-    }
-
     fn perform(&self, _con: &WorkerConnection, args: &Args) -> JobResult {
         let _: FailForeverArgs = args.deserialize()?;
         Err("Will always fail".to_string())

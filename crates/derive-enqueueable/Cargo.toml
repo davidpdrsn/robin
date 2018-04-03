@@ -1,0 +1,12 @@
+[package]
+name = "derive-enqueueable"
+version = "0.1.0"
+authors = ["David Pedersen <david.pdrsn@gmail.com>"]
+license = "MIT"
+
+[dependencies]
+syn = "0.12.14"
+quote = "0.4.2"
+
+[lib]
+proc-macro = true

@@ -28,9 +28,12 @@ impl Args {
     }
 }
 
-pub trait Job {
-    fn perform(&self, con: &WorkerConnection, args: &Args) -> JobResult;
+pub trait Enqueueable {
     fn name(&self) -> JobName;
+}
+
+pub trait Job: Enqueueable {
+    fn perform(&self, con: &WorkerConnection, args: &Args) -> JobResult;
 }
 
 pub trait PerformJob {

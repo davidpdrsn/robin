@@ -2,6 +2,8 @@
         unstable_features, unused_import_braces, unused_qualifications)]
 
 #[macro_use]
+extern crate derive_enqueueable;
+#[macro_use]
 extern crate enum_each_variant_derive;
 extern crate redis;
 extern crate serde;
@@ -17,9 +19,10 @@ pub mod worker;
 pub mod config;
 
 pub mod prelude {
-    pub use job::{Args, Job, JobName, JobResult, PerformJob};
+    pub use job::{Args, Enqueueable, Job, JobName, JobResult, PerformJob};
     pub use error::RobinResult;
     pub use connection::{establish, ConnectionProducer, WorkerConnection};
     pub use worker::boot;
     pub use config::Config;
+    pub use derive_enqueueable::*;
 }
