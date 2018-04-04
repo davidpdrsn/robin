@@ -17,7 +17,7 @@ serde_json = "1.0.11"
 redis = "0.8.0"
 uuid = { version = "0.6", features = ["v4"] }
 robin-derives = { path = "robin-derives" }
-derive-builder = { path = "crates/derive-builder" }
+derive-builder = { version = "0.1.0", path = "crates/derive-builder" }
 
 [dev-dependencies]
 version-sync = "0.5"
