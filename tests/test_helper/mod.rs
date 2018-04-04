@@ -21,8 +21,9 @@ impl TestHelper {
     pub fn setup<T: WithTempFile>(&self, args: &T) {
         fs::create_dir("tests/tmp").ok();
 
-        let con = establish_connection_to_worker(Config::test_config(&self.uuid))
+        let con = establish(Config::test_config(&self.uuid), Jobs::lookup_job)
             .expect("Failed to connect");
+
         con.delete_all().unwrap();
 
         args.file().map(|file| delete_tmp_test_file(file));
@@ -38,23 +39,70 @@ impl TestHelper {
     {
         let uuid = self.uuid.clone();
         thread::spawn(move || {
-            let con = establish_connection_to_worker(Config::test_config(&uuid))
-                .expect("Failed to connect");
+            let con =
+                establish(Config::test_config(&uuid), Jobs::lookup_job).expect("Failed to connect");
             f(con)
         })
     }
 
-    pub fn spawn_worker<F>(&mut self, f: F) -> JoinHandle<()>
-    where
-        F: 'static + FnOnce(&Config) + Send,
-    {
+    pub fn spawn_worker(&mut self) -> JoinHandle<()> {
         let uuid = self.uuid.clone();
-        thread::spawn(move || f(&Config::test_config(&uuid)))
+        thread::spawn(move || boot(&Config::test_config(&uuid), Jobs::lookup_job))
     }
 }
 
 pub trait WithTempFile {
     fn file(&self) -> Option<&str>;
+}
+
+#[derive(Jobs)]
+pub enum Jobs {
+    #[perform_with(perform_verifyable_job)]
+    VerifyableJob,
+    #[perform_with(perform_pass_second_time)]
+    PassSecondTime,
+    #[perform_with(perform_fail_forever)]
+    FailForever,
+}
+
+impl Jobs {
+    pub fn assert_verifiable_job_performed_with(args: &VerifyableJobArgs) {
+        let contents: String = read_tmp_test_file(args.file).unwrap();
+        assert_eq!(contents, args.file);
+    }
+}
+
+fn perform_verifyable_job(_con: &WorkerConnection, args: VerifyableJobArgs) -> JobResult {
+    write_tmp_test_file(args.file, args.file);
+    Ok(())
+}
+
+fn perform_pass_second_time(_con: &WorkerConnection, args: PassSecondTimeArgs) -> JobResult {
+    let contents = args.file().map(|file| read_tmp_test_file(file));
+
+    match contents {
+        Some(Ok(s)) => {
+            if &s == "been_here" {
+                args.file().map(|file| write_tmp_test_file(file, "OK"));
+                Ok(())
+            } else {
+                panic!(format!("File contained something different {}", s))
+            }
+        }
+        // File didn't exist
+        Some(Err(error)) => {
+            assert_eq!(error.kind(), io::ErrorKind::NotFound);
+            args.file()
+                .map(|file| write_tmp_test_file(file, "been_here"));
+
+            Err("This job is supposed to fail the first time".to_string())
+        }
+        None => Ok(()),
+    }
+}
+
+fn perform_fail_forever(_con: &WorkerConnection, _args: FailForeverArgs) -> JobResult {
+    Err("Will always fail".to_string())
 }
 
 #[derive(Serialize, Deserialize, Debug, Copy, Clone)]
@@ -68,24 +116,25 @@ impl<'a> WithTempFile for VerifyableJobArgs<'a> {
     }
 }
 
-#[derive(Enqueueable)]
-pub struct VerifyableJob;
+#[derive(Serialize, Deserialize, Debug, Copy, Clone)]
+pub struct PassSecondTimeArgs<'a> {
+    pub file: &'a str,
+}
 
-impl VerifyableJob {
-    pub fn assert_performed_with(args: &VerifyableJobArgs) {
-        let contents: String = read_tmp_test_file(args.file).unwrap();
-        assert_eq!(contents, args.file);
+impl<'a> WithTempFile for PassSecondTimeArgs<'a> {
+    fn file(&self) -> Option<&str> {
+        Some(self.file)
     }
 }
 
-impl Job for VerifyableJob {
-    fn perform(&self, _con: &WorkerConnection, args: &Args) -> JobResult {
-        let args: VerifyableJobArgs = args.deserialize()?;
-        write_tmp_test_file(args.file, args.file);
-        Ok(())
+#[derive(Serialize, Deserialize, Debug, Copy, Clone)]
+pub struct FailForeverArgs {}
+
+impl WithTempFile for FailForeverArgs {
+    fn file(&self) -> Option<&str> {
+        None
     }
 }
-
 pub fn write_tmp_test_file<S: ToString>(file: S, data: S) {
     let file = file.to_string();
     let file = format!("tests/tmp/{}", file);
@@ -113,14 +162,6 @@ pub fn delete_tmp_test_file<S: ToString>(file: S) {
     fs::remove_file(&file).ok();
 }
 
-pub fn establish_connection_to_worker(config: Config) -> RobinResult<WorkerConnection> {
-    let mut con: WorkerConnection = establish(config)?;
-    con.register(VerifyableJob)?;
-    con.register(PassSecondTime)?;
-    con.register(FailForever)?;
-    Ok(con)
-}
-
 pub trait TestConfig {
     fn test_config(uuid: &str) -> Self;
 }
@@ -136,66 +177,5 @@ impl TestConfig for Config {
             retry_count_limit: 4,
             worker_count: 1,
         }
-    }
-}
-
-#[derive(Enqueueable)]
-pub struct PassSecondTime;
-
-impl Job for PassSecondTime {
-    fn perform(&self, _con: &WorkerConnection, args: &Args) -> JobResult {
-        let args: PassSecondTimeArgs = args.deserialize()?;
-
-        let contents = args.file().map(|file| read_tmp_test_file(file));
-
-        match contents {
-            Some(Ok(s)) => {
-                if &s == "been_here" {
-                    args.file().map(|file| write_tmp_test_file(file, "OK"));
-                    Ok(())
-                } else {
-                    panic!(format!("File contained something different {}", s))
-                }
-            }
-            // File didn't exist
-            Some(Err(error)) => {
-                assert_eq!(error.kind(), io::ErrorKind::NotFound);
-                args.file()
-                    .map(|file| write_tmp_test_file(file, "been_here"));
-
-                Err("This job is supposed to fail the first time".to_string())
-            }
-            None => Ok(()),
-        }
-    }
-}
-
-#[derive(Serialize, Deserialize, Debug, Copy, Clone)]
-pub struct PassSecondTimeArgs<'a> {
-    pub file: &'a str,
-}
-
-impl<'a> WithTempFile for PassSecondTimeArgs<'a> {
-    fn file(&self) -> Option<&str> {
-        Some(self.file)
-    }
-}
-
-#[derive(Enqueueable)]
-pub struct FailForever;
-
-impl Job for FailForever {
-    fn perform(&self, _con: &WorkerConnection, args: &Args) -> JobResult {
-        let _: FailForeverArgs = args.deserialize()?;
-        Err("Will always fail".to_string())
-    }
-}
-
-#[derive(Serialize, Deserialize, Debug, Copy, Clone)]
-pub struct FailForeverArgs {}
-
-impl WithTempFile for FailForeverArgs {
-    fn file(&self) -> Option<&str> {
-        None
     }
 }

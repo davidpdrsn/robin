@@ -5,29 +5,14 @@ use error::*;
 use job::*;
 use self::queue_adapters::redis_queue::RedisQueue;
 use self::queue_adapters::{DequeueTimeout, EnqueuedJob, NoJobDequeued, QueueIdentifier, RetryCount};
-use std::collections::HashMap;
 
 pub struct WorkerConnection {
     queue: RedisQueue,
-    jobs: HashMap<JobName, Box<Job + Send>>,
     pub config: Config,
+    lookup_job: Box<LookupJob>,
 }
 
 impl WorkerConnection {
-    pub fn register<T>(&mut self, job: T) -> RobinResult<()>
-    where
-        T: 'static + Job + Send,
-    {
-        let name = job.name();
-
-        if self.jobs.contains_key(&name) {
-            Err(Error::JobAlreadyRegistered(name))
-        } else {
-            self.jobs.insert(name, Box::new(job));
-            Ok(())
-        }
-    }
-
     pub fn enqueue_to(
         &self,
         iden: QueueIdentifier,
@@ -58,15 +43,14 @@ impl WorkerConnection {
         &'a self,
         iden: QueueIdentifier,
         timeout: DequeueTimeout,
-    ) -> Result<(&'a Box<Job + Send>, String, RetryCount), NoJobDequeued> {
+    ) -> Result<(Box<Job + Send>, String, RetryCount), NoJobDequeued> {
         let enq_job = self.queue.dequeue(&timeout, iden)?;
 
         let args = enq_job.args;
         let name = enq_job.name;
 
-        let job = self.jobs
-            .get(&JobName::from(name.clone()))
-            .ok_or_else(move || Error::JobNotRegistered(name))
+        let job = self.lookup_job(&JobName::from(name.clone()))
+            .ok_or_else(move || Error::UnknownJob(name))
             .map_err(NoJobDequeued::from)?;
 
         Ok((job, args, enq_job.retry_count))
@@ -86,25 +70,33 @@ impl WorkerConnection {
     pub fn is_queue_empty(&self, iden: QueueIdentifier) -> RobinResult<bool> {
         self.queue.size(iden).map(|size| size == 0)
     }
+
+    fn lookup_job(&self, name: &JobName) -> Option<Box<Job + Send>> {
+        self.lookup_job.lookup(name)
+    }
 }
 
-pub fn establish(config: Config) -> RobinResult<WorkerConnection> {
+pub fn establish<T: 'static + LookupJob>(
+    config: Config,
+    lookup_job: T,
+) -> RobinResult<WorkerConnection> {
     RedisQueue::new_with_namespace(&config.redis_namespace).map(|redis_queue| WorkerConnection {
         queue: redis_queue,
-        jobs: HashMap::new(),
         config: config,
+        lookup_job: Box::new(lookup_job),
     })
 }
 
-pub trait ConnectionProducer {
-    fn new_connection(&self) -> RobinResult<WorkerConnection>;
+pub trait LookupJob {
+    fn lookup(&self, name: &JobName) -> Option<Box<Job + Send>>;
 }
 
-impl<T> ConnectionProducer for T
+impl<F> LookupJob for F
 where
-    T: Fn() -> RobinResult<WorkerConnection>,
+    F: Clone,
+    F: Fn(&JobName) -> Option<Box<Job + Send>>,
 {
-    fn new_connection(&self) -> RobinResult<WorkerConnection> {
-        self()
+    fn lookup(&self, name: &JobName) -> Option<Box<Job + Send>> {
+        self(name)
     }
 }

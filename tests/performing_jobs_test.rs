@@ -4,7 +4,6 @@ extern crate serde_derive;
 extern crate uuid;
 
 mod test_helper;
-
 use test_helper::*;
 
 #[test]
@@ -17,15 +16,13 @@ fn enqueuing_and_performing_jobs() {
 
     t.setup(&args);
 
-    let client = t.spawn_client(move |con| VerifyableJob.perform_later(&con, &args).unwrap());
-    let worker = t.spawn_worker(|config| {
-        robin::worker::boot(&config, || establish_connection_to_worker(config.clone()))
-    });
+    let client = t.spawn_client(move |con| Jobs::VerifyableJob.perform_later(&con, &args).unwrap());
+    let worker = t.spawn_worker();
 
     client.join().unwrap();
     worker.join().unwrap();
 
-    VerifyableJob::assert_performed_with(&args);
+    Jobs::assert_verifiable_job_performed_with(&args);
 
     t.teardown(&args);
 }
@@ -49,21 +46,21 @@ fn running_multiple_jobs() {
     t.setup(&args_three);
 
     let client = t.spawn_client(move |con| {
-        VerifyableJob.perform_later(&con, &args_one).unwrap();
-        VerifyableJob.perform_later(&con, &args_two).unwrap();
-        VerifyableJob.perform_later(&con, &args_three).unwrap();
+        Jobs::VerifyableJob.perform_later(&con, &args_one).unwrap();
+        Jobs::VerifyableJob.perform_later(&con, &args_two).unwrap();
+        Jobs::VerifyableJob
+            .perform_later(&con, &args_three)
+            .unwrap();
     });
 
-    let worker = t.spawn_worker(|config| {
-        robin::worker::boot(&config, || establish_connection_to_worker(config.clone()))
-    });
+    let worker = t.spawn_worker();
 
     client.join().unwrap();
     worker.join().unwrap();
 
-    VerifyableJob::assert_performed_with(&args_one);
-    VerifyableJob::assert_performed_with(&args_two);
-    VerifyableJob::assert_performed_with(&args_three);
+    Jobs::assert_verifiable_job_performed_with(&args_one);
+    Jobs::assert_verifiable_job_performed_with(&args_two);
+    Jobs::assert_verifiable_job_performed_with(&args_three);
 
     t.teardown(&args_one);
     t.teardown(&args_two);
@@ -80,14 +77,12 @@ fn job_fails_then_gets_retried_and_passes() {
     t.setup(&args);
 
     let client = t.spawn_client(move |con| {
-        PassSecondTime
+        Jobs::PassSecondTime
             .perform_later(&con, &args)
             .expect("Failed to enqueue job");
     });
 
-    let worker = t.spawn_worker(|config| {
-        robin::worker::boot(&config, || establish_connection_to_worker(config.clone()))
-    });
+    let worker = t.spawn_worker();
 
     client.join().expect("failed to end client");
     worker.join().expect("failed to end worker");
@@ -107,14 +102,12 @@ fn job_doesnt_get_retried_forever() {
     t.setup(&args);
 
     let client = t.spawn_client(move |con| {
-        FailForever
+        Jobs::FailForever
             .perform_later(&con, &args)
             .expect("Failed to enqueue job");
     });
 
-    let worker = t.spawn_worker(|config| {
-        robin::worker::boot(&config, || establish_connection_to_worker(config.clone()))
-    });
+    let worker = t.spawn_worker();
 
     client.join().expect("failed to end client");
     worker.join().expect("failed to end worker");

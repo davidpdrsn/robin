@@ -5,7 +5,7 @@ use connection::WorkerConnection;
 use connection::queue_adapters::{QueueIdentifier, RetryCount};
 use error::{Error, RobinResult};
 
-pub type JobResult<'a> = Result<(), String>;
+pub type JobResult = Result<(), String>;
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Args {
@@ -28,16 +28,15 @@ impl Args {
     }
 }
 
-pub trait Enqueueable {
+pub trait Job {
     fn name(&self) -> JobName;
-}
-
-pub trait Job: Enqueueable {
     fn perform(&self, con: &WorkerConnection, args: &Args) -> JobResult;
 }
 
 pub trait PerformJob {
-    fn perform_now<A: Serialize>(&self, con: &WorkerConnection, args: A) -> RobinResult<()>;
+    // TODO: Implement perform_now
+    // fn perform_now<A: Serialize>(&self, con: &WorkerConnection, args: A) -> RobinResult<()>;
+
     fn perform_later<A: Serialize>(&self, con: &WorkerConnection, args: A) -> RobinResult<()>;
 }
 
@@ -45,15 +44,6 @@ impl<T> PerformJob for T
 where
     T: Job,
 {
-    fn perform_now<A: Serialize>(&self, con: &WorkerConnection, args: A) -> RobinResult<()> {
-        let job_result: JobResult = self.perform(con, &serialize_arg(args)?);
-
-        match job_result {
-            Ok(_) => Ok(()),
-            Err(msg) => Err(Error::JobFailed(msg.to_string())),
-        }
-    }
-
     fn perform_later<A: Serialize>(&self, con: &WorkerConnection, args: A) -> RobinResult<()> {
         con.enqueue_to(
             QueueIdentifier::Main,

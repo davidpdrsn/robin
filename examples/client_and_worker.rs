@@ -1,4 +1,3 @@
-#[macro_use]
 extern crate robin;
 #[macro_use]
 extern crate serde_derive;
@@ -20,39 +19,33 @@ fn main() {
 }
 
 fn worker(config: Config) {
-    robin::worker::boot(&config, || establish_connection_to_worker(config.clone()))
+    robin::worker::boot(&config, Jobs::lookup_job);
 }
 
 fn client(config: Config) {
-    let con = establish_connection_to_worker(config).unwrap();
+    let con = establish(config, Jobs::lookup_job).expect("Failed to connect");
 
     let n = 100;
 
     for i in 0..n {
         println!("{}/{}", i + 1, n);
-        MyJob.perform_later(&con, &JobArgs).unwrap();
+        Jobs::MyJob.perform_later(&con, &JobArgs).unwrap();
     }
 }
 
-fn establish_connection_to_worker(config: Config) -> RobinResult<WorkerConnection> {
-    let mut con: WorkerConnection = establish(config)?;
-    con.register(MyJob)?;
-    Ok(con)
-}
-
-#[derive(Enqueueable)]
-struct MyJob;
-
-impl Job for MyJob {
-    fn perform(&self, _con: &WorkerConnection, args: &Args) -> JobResult {
-        let args: JobArgs = args.deserialize()?;
-        println!("Job performed with {:?}", args);
-        Ok(())
-    }
+#[derive(Jobs)]
+enum Jobs {
+    #[perform_with(perform_my_job)]
+    MyJob,
 }
 
 #[derive(Serialize, Deserialize, Debug, Copy, Clone)]
 pub struct JobArgs;
+
+fn perform_my_job(_con: &WorkerConnection, args: JobArgs) -> JobResult {
+    println!("Job performed with {:?}", args);
+    Ok(())
+}
 
 fn run_as_client() -> bool {
     let args = cmd_args();

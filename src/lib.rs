@@ -17,9 +17,9 @@ pub mod worker;
 pub mod config;
 
 pub mod prelude {
-    pub use job::{Args, Enqueueable, Job, JobName, JobResult, PerformJob};
+    pub use job::{Args, Job, JobName, JobResult, PerformJob};
     pub use error::RobinResult;
-    pub use connection::{establish, ConnectionProducer, WorkerConnection};
+    pub use connection::{establish, LookupJob, WorkerConnection};
     pub use worker::boot;
     pub use config::Config;
     pub use robin_derives::*;
