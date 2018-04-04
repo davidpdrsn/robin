@@ -2,6 +2,6 @@
 target
 **/*.rs.bk
 Cargo.lock
-tests/tmp
+robin/tests/tmp
 dump.rdb
 tags
