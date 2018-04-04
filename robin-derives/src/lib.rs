@@ -4,22 +4,23 @@ extern crate quote;
 extern crate syn;
 
 mod each_variant;
+mod jobs;
 
 use proc_macro::TokenStream;
 use syn::*;
 use quote::Tokens;
 
-macro_rules! derive_impl {
-    ($derive_name:ident, $name:ident) => (
-        #[doc(hidden)]
-        #[proc_macro_derive($derive_name)]
-        pub fn $name(input: TokenStream) -> TokenStream {
-            expand_derive(input, $name::derive)
-        }
-    )
+#[doc(hidden)]
+#[proc_macro_derive(EachVariant)]
+pub fn derive_each_variant(input: TokenStream) -> TokenStream {
+    expand_derive(input, each_variant::derive)
 }
 
-derive_impl!(EachVariant, each_variant);
+#[doc(hidden)]
+#[proc_macro_derive(Jobs, attributes(perform_with))]
+pub fn derive_jobs(input: TokenStream) -> TokenStream {
+    expand_derive(input, jobs::derive)
+}
 
 fn expand_derive<F>(input: TokenStream, f: F) -> TokenStream
 where

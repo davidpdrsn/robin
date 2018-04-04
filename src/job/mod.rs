@@ -5,7 +5,7 @@ use connection::WorkerConnection;
 use connection::queue_adapters::{QueueIdentifier, RetryCount};
 use error::{Error, RobinResult};
 
-pub type JobResult<'a> = Result<(), String>;
+pub type JobResult = Result<(), String>;
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Args {
