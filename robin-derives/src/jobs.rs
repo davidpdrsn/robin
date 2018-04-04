@@ -9,6 +9,16 @@ pub fn derive(input: DeriveInput) -> Tokens {
         _ => panic!("#[derive(Jobs)] is only defined for enums"),
     };
 
+    let lookup_job_impl = lookup_job_impl(name, &enum_data);
+    let job_impl = job_impl(name, &enum_data);
+
+    quote! {
+        #lookup_job_impl
+        #job_impl
+    }
+}
+
+fn lookup_job_impl(name: &Ident, enum_data: &DataEnum) -> Tokens {
     let lookup_job_match_arms = enum_data
         .variants
         .iter()
@@ -21,6 +31,19 @@ pub fn derive(input: DeriveInput) -> Tokens {
         })
         .collect::<Vec<_>>();
 
+    quote! {
+        impl #name {
+            fn lookup_job(name: &JobName) -> Option<Box<Job + Send>> {
+                match name.0.as_ref() {
+                    #(#lookup_job_match_arms),*
+                    _ => None,
+                }
+            }
+        }
+    }
+}
+
+fn job_impl(name: &Ident, enum_data: &DataEnum) -> Tokens {
     let job_name_match_arms = enum_data
         .variants
         .iter()
@@ -42,38 +65,32 @@ pub fn derive(input: DeriveInput) -> Tokens {
 
             let mut perform_with = None;
 
-            for attr in &variant.attrs {
-                attr.path.segments.iter().for_each(|path| {
+            'outer: for attr in &variant.attrs {
+                for path in attr.path.segments.iter() {
                     if path.ident == Ident::from("perform_with") {
                         let tts = &attr.tts;
                         perform_with = Some(quote! { #tts });
-                    };
-                })
+                        break 'outer;
+                    }
+                }
             }
 
-            match perform_with {
-                None => panic!(
-                    "#[derive(Jobs)] requires all enum variants to have a `perform_with(function_name)` attribute. `{}::{}` does not.",
-                    name,
-                    variant_name
-                ),
-                Some(perform_with) => quote! {
-                    #qualified_name => { #perform_with(con, args.deserialize()?) }
-                },
+            let perform_with = match perform_with {
+                None => {
+                    let name = format!("perform_{}", underscore(&variant_name.to_string()));
+                    let name = Ident::from(name);
+                    quote! { #name }
+                }
+                Some(perform_with) => perform_with,
+            };
+
+            quote! {
+                #qualified_name => { #perform_with(con, args.deserialize()?) }
             }
         })
         .collect::<Vec<_>>();
 
-    let output = quote! {
-        impl #name {
-            fn lookup_job(name: &JobName) -> Option<Box<Job + Send>> {
-                match name.0.as_ref() {
-                    #(#lookup_job_match_arms),*
-                    _ => None,
-                }
-            }
-        }
-
+    quote! {
         impl Job for #name {
             fn name(&self) -> JobName {
                 match *self {
@@ -87,7 +104,36 @@ pub fn derive(input: DeriveInput) -> Tokens {
                 }
             }
         }
-    };
+    }
+}
 
-    output
+fn underscore(s: &str) -> String {
+    let mut acc = String::new();
+
+    for (idx, c) in s.chars().enumerate() {
+        if c.is_uppercase() {
+            if idx != 0 {
+                acc.push('_');
+            }
+            acc.push_str(&c.to_lowercase().to_string());
+        } else {
+            acc.push(c);
+        }
+    }
+
+    acc
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_underscore() {
+        assert_eq!(underscore("MyJob"), "my_job".to_string());
+        assert_eq!(underscore("myjob"), "myjob".to_string());
+        assert_eq!(underscore(""), "".to_string());
+        assert_eq!(underscore("Test"), "test".to_string());
+        assert_eq!(underscore("test test"), "test test".to_string());
+    }
 }

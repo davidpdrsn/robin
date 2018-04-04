@@ -61,7 +61,6 @@ pub enum Jobs {
     VerifyableJob,
     #[perform_with(perform_pass_second_time)]
     PassSecondTime,
-    #[perform_with(perform_fail_forever)]
     FailForever,
 }
 
