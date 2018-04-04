@@ -1,14 +1,12 @@
 use serde_json;
 use redis;
-use job::JobName;
 use std::io;
 
 pub type RobinResult<T> = Result<T, Error>;
 
 #[derive(Debug)]
 pub enum Error {
-    JobAlreadyRegistered(JobName),
-    JobNotRegistered(String),
+    UnknownJob(String),
 
     JobFailed(String),
 
@@ -41,8 +39,7 @@ impl From<redis::RedisError> for Error {
 impl From<Error> for String {
     fn from(error: Error) -> String {
         match error {
-            Error::JobAlreadyRegistered(name) => format!("{:?} already registered", name),
-            Error::JobNotRegistered(name) => format!("{} not registered", name),
+            Error::UnknownJob(name) => format!("{} is unknown", name),
             Error::JobFailed(msg) => format!("Job failed with message: {}", msg),
             Error::IoError(err) => format!("Error::IoError : {}", err),
             Error::SerdeJsonError(err) => format!("Error::SerdeJsonError : {}", err),

@@ -20,35 +20,51 @@ fn main() {
 }
 
 fn worker(config: Config) {
-    robin::worker::boot(&config, || establish_connection_to_worker(config.clone()))
+    let clone = config.clone();
+    robin::worker::boot(&config, Jobs::lookup_job);
 }
 
 fn client(config: Config) {
-    let con = establish_connection_to_worker(config).unwrap();
+    let con = establish(config, Jobs::lookup_job).expect("Failed to connect");
 
     let n = 100;
 
     for i in 0..n {
         println!("{}/{}", i + 1, n);
-        MyJob.perform_later(&con, &JobArgs).unwrap();
+        Jobs::MyJob.perform_later(&con, &JobArgs).unwrap();
     }
 }
 
-fn establish_connection_to_worker(config: Config) -> RobinResult<WorkerConnection> {
-    let mut con: WorkerConnection = establish(config)?;
-    con.register(MyJob)?;
-    Ok(con)
+enum Jobs {
+    MyJob,
 }
 
-#[derive(Enqueueable)]
-struct MyJob;
-
-impl Job for MyJob {
-    fn perform(&self, _con: &WorkerConnection, args: &Args) -> JobResult {
-        let args: JobArgs = args.deserialize()?;
-        println!("Job performed with {:?}", args);
-        Ok(())
+impl Jobs {
+    fn lookup_job(name: &JobName) -> Option<Box<Job + Send>> {
+        match name.0.as_ref() {
+            "Jobs::MyJob" => Some(Box::new(Jobs::MyJob)),
+            _ => None,
+        }
     }
+}
+
+impl Job for Jobs {
+    fn name(&self) -> JobName {
+        match *self {
+            Jobs::MyJob => JobName::from("Jobs::MyJob"),
+        }
+    }
+
+    fn perform(&self, con: &WorkerConnection, args: &Args) -> JobResult {
+        match *self {
+            Jobs::MyJob => perform_my_job(con, args.deserialize()?),
+        }
+    }
+}
+
+fn perform_my_job(_con: &WorkerConnection, args: JobArgs) -> JobResult {
+    println!("Job performed with {:?}", args);
+    Ok(())
 }
 
 #[derive(Serialize, Deserialize, Debug, Copy, Clone)]

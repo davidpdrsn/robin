@@ -1,7 +1,6 @@
 use connection::*;
 use job::*;
 use connection::queue_adapters::{DequeueTimeout, NoJobDequeued, QueueIdentifier, RetryCount};
-use connection::ConnectionProducer;
 use std::thread::{self, JoinHandle};
 use config::Config;
 use serde_json;
@@ -18,9 +17,11 @@ impl WorkerNumber {
     }
 }
 
-pub fn boot<T>(config: &Config, connection_producer: T)
+pub fn boot<T>(config: &Config, lookup_job: T)
 where
-    T: ConnectionProducer + Send,
+    T: 'static,
+    T: LookupJob,
+    T: Send + Clone,
 {
     let worker_count = config.worker_count;
 
@@ -37,11 +38,11 @@ where
             worker_number.number, worker_count
         );
 
-        let con = connection_producer
-            .new_connection()
-            .expect("Failed to create new connection");
-
-        handles.push(spawn_worker(con, worker_number));
+        handles.push(spawn_worker(
+            worker_number,
+            config.clone(),
+            lookup_job.clone(),
+        ));
     }
 
     for handle in handles {
@@ -49,11 +50,19 @@ where
     }
 }
 
-fn spawn_worker(con: WorkerConnection, worker_number: WorkerNumber) -> JoinHandle<()> {
-    thread::spawn(move || loop {
-        match perform_job(&con, QueueIdentifier::Main, worker_number) {
-            LoopControl::Break => break,
-            LoopControl::Continue => {}
+fn spawn_worker<T>(worker_number: WorkerNumber, config: Config, lookup_job: T) -> JoinHandle<()>
+where
+    T: 'static,
+    T: LookupJob + Send,
+{
+    thread::spawn(move || {
+        let con = establish(config, lookup_job).expect("failed to establish connection");
+
+        loop {
+            match perform_job(&con, QueueIdentifier::Main, worker_number) {
+                LoopControl::Break => break,
+                LoopControl::Continue => {}
+            }
         }
     })
 }
@@ -125,7 +134,7 @@ enum LoopControl {
 
 fn perform_or_retry(
     con: &WorkerConnection,
-    job: &Box<Job + Send>,
+    job: Box<Job + Send>,
     args: &str,
     retry_count: RetryCount,
     worker_number: WorkerNumber,

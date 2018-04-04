@@ -3,7 +3,6 @@ extern crate proc_macro;
 extern crate quote;
 extern crate syn;
 
-mod enqueueable;
 mod each_variant;
 
 use proc_macro::TokenStream;
@@ -19,8 +18,6 @@ macro_rules! derive_impl {
         }
     )
 }
-
-derive_impl!(Enqueueable, enqueueable);
 
 derive_impl!(EachVariant, each_variant);
 
