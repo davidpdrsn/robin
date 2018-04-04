@@ -17,6 +17,13 @@ impl WorkerNumber {
     }
 }
 
+/// Boot the worker.
+///
+/// This will spawn the numbers of threads set by `config.worker_count`. Each thread
+/// will dequeue a job, perform, and repeat.
+///
+/// Make sure the config you're using here is the same config you use to establish the connection
+/// in `connection::establish`.
 pub fn boot<T>(config: &Config, lookup_job: T)
 where
     T: 'static,

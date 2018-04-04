@@ -5,4 +5,6 @@ RUST_BACKTRACE=1 cargo watch \
   --clear \
   -x "check --tests" \
   -x "check --lib" \
-  -s "cargo fmt --all -- --write-mode=diff"
+  -x test \
+  -s "cargo fmt --all -- --write-mode=diff" \
+  -x doc

@@ -5,18 +5,28 @@ use connection::WorkerConnection;
 use connection::queue_adapters::{QueueIdentifier, RetryCount};
 use error::{Error, RobinResult};
 
+/// The result type returned when performing jobs.
 pub type JobResult = Result<(), String>;
 
+/// A type that holds serialized job arguments.
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Args {
+    /// The serialized arguments.
     pub json: String,
 }
 
 impl Args {
+    /// Convert into string encoded JSON.
     pub fn to_json(&self) -> RobinResult<String> {
         serde_json::to_string(&self).map_err(Error::from)
     }
 
+    /// Generic function for deserializing the encoded arguments into the type
+    /// required by the job.
+    ///
+    /// Will return `Err(Error::JobFailed(_))` if deserialization fails.
+    /// This will most likely happen if a given job doesn't support the arguments type you're
+    /// trying to deserialize into.
     pub fn deserialize<'a, T: Deserialize<'a>>(&'a self) -> RobinResult<T> {
         match serde_json::from_str(&self.json) {
             Ok(v) => Ok(v),
@@ -28,15 +38,23 @@ impl Args {
     }
 }
 
+/// The trait that defines what a particular job should do.
 pub trait Job {
+    /// The name of the job. Required to put the job into Redis.
     fn name(&self) -> JobName;
+
+    /// What the job actually does.
     fn perform(&self, con: &WorkerConnection, args: &Args) -> JobResult;
 }
 
+/// Trait for either performing immediately, or more commonly, later.
+/// This trait is automatically implemented for types that implement `Job`
+/// so you shouldn't ever need to implement this manually.
 pub trait PerformJob {
     // TODO: Implement perform_now
     // fn perform_now<A: Serialize>(&self, con: &WorkerConnection, args: A) -> RobinResult<()>;
 
+    /// Put the job into the queue for processing at a later point.
     fn perform_later<A: Serialize>(&self, con: &WorkerConnection, args: A) -> RobinResult<()>;
 }
 
@@ -59,10 +77,14 @@ fn serialize_arg<T: Serialize>(value: T) -> RobinResult<Args> {
     Ok(Args { json })
 }
 
+/// A simple new type wrapper around strings.
 #[derive(Eq, PartialEq, Hash, Debug)]
 pub struct JobName(pub String);
 
-impl<T: Into<String>> From<T> for JobName {
+impl<T> From<T> for JobName
+where
+    T: Into<String>,
+{
     fn from(t: T) -> JobName {
         JobName(t.into())
     }

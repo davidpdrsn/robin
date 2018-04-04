@@ -29,6 +29,7 @@ pub fn derive(input: DeriveInput) -> Tokens {
 
     quote! {
         impl #name {
+            #[doc(hidden)]
             pub fn all_variants() -> Vec<Self> {
                 let mut acc: Vec<Self> = vec![];
                 #(#push_variants);*

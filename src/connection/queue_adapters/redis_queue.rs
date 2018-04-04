@@ -5,6 +5,7 @@ use super::{DequeueTimeout, EnqueuedJob, NoJobDequeued, QueueIdentifier};
 use redis;
 use std::fmt;
 
+/// A wrapper around an actual `redis::Connection`.
 pub struct RedisQueue {
     redis: redis::Connection,
     redis_url: String,
@@ -12,6 +13,8 @@ pub struct RedisQueue {
 }
 
 impl RedisQueue {
+    /// Create a new `RedisQueue` with the given namespace. That namespace will be prefixed all
+    /// keys send to Redis.
     pub fn new_with_namespace(name: &str) -> RobinResult<Self> {
         let redis_url = "redis://127.0.0.1/";
         let client = Client::open(redis_url)?;
@@ -23,6 +26,7 @@ impl RedisQueue {
         })
     }
 
+    /// Put a job into a queue
     pub fn enqueue(&self, enq_job: EnqueuedJob, iden: QueueIdentifier) -> RobinResult<()> {
         let data: String = json!(enq_job).to_string();
         let _: () = self.redis.rpush(&self.key(iden), data)?;
@@ -30,6 +34,7 @@ impl RedisQueue {
         Ok(())
     }
 
+    /// Pull a job out of the queue. This will block for `timeout` seconds if the queue is empty.
     pub fn dequeue<'a>(
         &self,
         timeout: &DequeueTimeout,
@@ -53,11 +58,13 @@ impl RedisQueue {
         }
     }
 
+    /// Delete everything in the queue.
     pub fn delete_all(&self, iden: QueueIdentifier) -> RobinResult<()> {
         let _: () = self.redis.del(&self.key(iden))?;
         Ok(())
     }
 
+    /// The number of jobs in the queue.
     pub fn size(&self, iden: QueueIdentifier) -> RobinResult<usize> {
         let size: usize = self.redis.llen(&self.key(iden)).map_err(Error::from)?;
         Ok(size)

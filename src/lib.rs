@@ -1,6 +1,82 @@
-#![deny(missing_debug_implementations, missing_copy_implementations, trivial_casts,
+#![deny(missing_docs, missing_debug_implementations, missing_copy_implementations, trivial_casts,
         trivial_numeric_casts, unsafe_code, unstable_features, unused_import_braces,
         unused_qualifications)]
+
+//! # Robin
+//!
+//! Robin lets you run jobs in the background. This could be payment processing or sending emails.
+//! Inspired by ActiveJob from Ruby on Rails.
+//!
+//! ## Getting started
+//!
+//! The standard way to use Robin is through the `#[derive(Job)]` macro. It works on
+//! enum and will generate all the boilerplate needed to perform jobs.
+//!
+//! Here is a full example:
+//!
+//! ```rust
+//! extern crate robin;
+//! #[macro_use]
+//! extern crate serde_derive;
+//!
+//! # fn main() {
+//! use robin::prelude::*;
+//! use robin::connection::queue_adapters::QueueIdentifier;
+//!
+//! #[derive(Job)]
+//! enum Jobs {
+//!     #[perform_with(perform_my_job)]
+//!     MyJob,
+//! }
+//!
+//! #[derive(Serialize, Deserialize, Debug, Copy, Clone)]
+//! pub struct JobArgs;
+//!
+//! fn perform_my_job(_con: &WorkerConnection, args: JobArgs) -> JobResult {
+//!     println!("Job performed with {:?}", args);
+//!     Ok(())
+//! }
+//!
+//! let config = Config::default();
+//! # let mut config = Config::default();
+//! # config.timeout = 1;
+//! # config.redis_namespace = "doc_tests_for_crate".to_string();
+//! # config.repeat_on_timeout = false;
+//! # config.retry_count_limit = 1;
+//! # config.worker_count = 1;
+//! let worker_config = config.clone();
+//!
+//! let con = robin::connection::establish(config, Jobs::lookup_job).expect("Failed to connect");
+//! # con.delete_all();
+//!
+//! assert_eq!(con.main_queue_size().unwrap(), 0);
+//! assert_eq!(con.retry_queue_size().unwrap(), 0);
+//!
+//! for i in 0..5 {
+//!     Jobs::MyJob.perform_later(&con, &JobArgs).unwrap();
+//! }
+//!
+//! assert_eq!(con.main_queue_size().unwrap(), 5);
+//! assert_eq!(con.retry_queue_size().unwrap(), 0);
+//!
+//! robin::worker::boot(&worker_config, Jobs::lookup_job);
+//!
+//! assert_eq!(con.main_queue_size().unwrap(), 0);
+//! assert_eq!(con.retry_queue_size().unwrap(), 0);
+//! # }
+//! ```
+//!
+//! Normally the code the enqueues jobs and the code the boots the worker would be in separate
+//! binaries.
+//!
+//! ## The prelude
+//!
+//! Robin provides a prelude module which exports all the commonly used types and traits.
+//! Code using Robin is expected to have
+//!
+//! ```rust
+//! use robin::prelude::*;
+//! ```
 
 extern crate redis;
 #[macro_use]
@@ -11,13 +87,25 @@ extern crate serde_derive;
 #[macro_use]
 extern crate serde_json;
 
+/// Contains the connection type and functions for establishing connections.
 pub mod connection;
+
+/// Contains the error and result types used throughout Robin.
 pub mod error;
+
+/// Contains traits for enqueueing and performing jobs.
 pub mod job;
+
+/// Contains functions for booting and running workers which perform jobs.
 pub mod worker;
+
+/// Contains the config type used to configure Robin.
 pub mod config;
 
 pub mod prelude {
+    //! Reexports the most commonly used types and traits from the other modules.
+    //! As long as you're doing standard things this is the only `use` you'll need.
+
     pub use job::{Args, Job, JobName, JobResult, PerformJob};
     pub use error::RobinResult;
     pub use connection::{establish, LookupJob, WorkerConnection};
