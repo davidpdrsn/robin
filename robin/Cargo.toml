@@ -17,7 +17,7 @@ serde_json = "1.0.11"
 redis = "0.8.0"
 uuid = { version = "0.6", features = ["v4"] }
 robin-derives = { path = "../robin-derives" }
-derive-builder = { path = "../derive-builder" }
+typesafe-derive-builder = { path = "../typesafe-derive-builder" }
 
 [dev-dependencies]
 version-sync = "0.5"

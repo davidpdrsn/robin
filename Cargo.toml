@@ -3,5 +3,5 @@
 members = [
     "robin",
     "robin-derives",
-    "derive-builder",
+    "typesafe-derive-builder",
 ]

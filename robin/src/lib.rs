@@ -83,8 +83,6 @@
 //! use robin::prelude::*;
 //! ```
 
-#[macro_use]
-extern crate derive_builder;
 extern crate redis;
 #[macro_use]
 extern crate robin_derives;
@@ -93,6 +91,8 @@ extern crate serde;
 extern crate serde_derive;
 #[macro_use]
 extern crate serde_json;
+#[macro_use]
+extern crate typesafe_derive_builder;
 
 /// Contains the connection type and functions for establishing connections.
 pub mod connection;
