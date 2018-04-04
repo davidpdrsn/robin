@@ -7,7 +7,7 @@ for Rust libraries in [RFC #1105](https://github.com/rust-lang/rfcs/blob/master/
 ## Unreleased
 
 ### Added
-- Everything
+N/A
 
 ### Changed
 N/A
@@ -17,3 +17,7 @@ N/A
 
 ### Fixed
 N/A
+
+## 0.1.0 - 2018-04-04
+
+Initial release.
