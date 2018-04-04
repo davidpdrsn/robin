@@ -1,5 +1,5 @@
 [package]
-name = "derive-enqueueable"
+name = "robin-derives"
 version = "0.1.0"
 authors = ["David Pedersen <david.pdrsn@gmail.com>"]
 license = "MIT"
@@ -7,6 +7,7 @@ license = "MIT"
 [dependencies]
 syn = "0.12.14"
 quote = "0.4.2"
+lazy_static = "1.0.0"
 
 [lib]
 proc-macro = true
