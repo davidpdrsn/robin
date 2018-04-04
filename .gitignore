@@ -4,3 +4,4 @@ target
 Cargo.lock
 tests/tmp
 dump.rdb
+tags
