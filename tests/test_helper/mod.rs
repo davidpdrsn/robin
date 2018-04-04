@@ -55,7 +55,7 @@ pub trait WithTempFile {
     fn file(&self) -> Option<&str>;
 }
 
-#[derive(Jobs)]
+#[derive(Job)]
 pub enum Jobs {
     #[perform_with(perform_verifyable_job)]
     VerifyableJob,

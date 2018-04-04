@@ -17,7 +17,7 @@ pub fn derive_each_variant(input: TokenStream) -> TokenStream {
 }
 
 #[doc(hidden)]
-#[proc_macro_derive(Jobs, attributes(perform_with))]
+#[proc_macro_derive(Job, attributes(perform_with))]
 pub fn derive_jobs(input: TokenStream) -> TokenStream {
     expand_derive(input, jobs::derive)
 }

@@ -33,7 +33,7 @@ fn client(config: Config) {
     }
 }
 
-#[derive(Jobs)]
+#[derive(Job)]
 enum Jobs {
     #[perform_with(perform_my_job)]
     MyJob,
