@@ -16,5 +16,5 @@ Add this to your `Cargo.toml` and you're good to go
 
 ```toml
 [dependencies]
-robin = "0.0.1"
+robin = "0.1.0"
 ```

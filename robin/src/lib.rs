@@ -1,7 +1,7 @@
 #![deny(missing_docs, missing_debug_implementations, missing_copy_implementations, trivial_casts,
         trivial_numeric_casts, unsafe_code, unstable_features, unused_import_braces,
         unused_qualifications)]
-#![doc(html_root_url = "https://docs.rs/robin/0.0.1")]
+#![doc(html_root_url = "https://docs.rs/robin/0.1.0")]
 
 //! # Robin
 //!
