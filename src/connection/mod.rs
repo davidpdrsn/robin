@@ -3,13 +3,20 @@ pub mod queue_adapters;
 use config::Config;
 use error::*;
 use job::*;
-use self::queue_adapters::redis_queue::RedisQueue;
-use self::queue_adapters::{DequeueTimeout, EnqueuedJob, NoJobDequeued, QueueIdentifier, RetryCount};
+use self::queue_adapters::{DequeueTimeout, EnqueuedJob, NoJobDequeued, QueueIdentifier,
+                           RetryCount, redis_queue::RedisQueue};
+use std::fmt;
 
 pub struct WorkerConnection {
     queue: RedisQueue,
     pub config: Config,
     lookup_job: Box<LookupJob>,
+}
+
+impl fmt::Debug for WorkerConnection {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "WorkerConnection {{ config: {:?} }}", self.config)
+    }
 }
 
 impl WorkerConnection {

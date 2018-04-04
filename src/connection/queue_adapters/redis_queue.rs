@@ -3,18 +3,22 @@ use redis::{Client, Commands};
 use serde_json;
 use super::{DequeueTimeout, EnqueuedJob, NoJobDequeued, QueueIdentifier};
 use redis;
+use std::fmt;
 
 pub struct RedisQueue {
     redis: redis::Connection,
+    redis_url: String,
     key: String,
 }
 
 impl RedisQueue {
     pub fn new_with_namespace(name: &str) -> RobinResult<Self> {
-        let client = Client::open("redis://127.0.0.1/")?;
+        let redis_url = "redis://127.0.0.1/";
+        let client = Client::open(redis_url)?;
         let con = client.get_connection()?;
         Ok(RedisQueue {
             redis: con,
+            redis_url: redis_url.to_string(),
             key: name.to_string(),
         })
     }
@@ -61,5 +65,15 @@ impl RedisQueue {
 
     fn key(&self, iden: QueueIdentifier) -> String {
         format!("{}_{}", self.key, iden.redis_queue_name())
+    }
+}
+
+impl fmt::Debug for RedisQueue {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(
+            f,
+            "RedisQueue {{ key: {:?}, redis_url: {:?} }}",
+            self.key, self.redis_url
+        )
     }
 }
