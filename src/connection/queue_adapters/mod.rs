@@ -35,16 +35,28 @@ impl RetryCount {
 }
 
 /// The data structure that gets serialized and put into Redis.
-#[derive(Deserialize, Serialize, Debug)]
+#[derive(Deserialize, Serialize, Debug, Builder)]
 pub struct EnqueuedJob {
-    /// The name of the job.
-    pub name: String,
+    name: String,
+    args: String,
+    retry_count: RetryCount,
+}
 
-    /// The string encoded JSON arguments.
-    pub args: String,
+impl EnqueuedJob {
+    /// Get the name
+    pub fn name(&self) -> &str {
+        &self.name
+    }
 
-    /// The number of times the jobs has been retried.
-    pub retry_count: RetryCount,
+    /// Get the arguments
+    pub fn args(&self) -> &str {
+        &self.args
+    }
+
+    /// Get the retry count
+    pub fn retry_count(&self) -> &RetryCount {
+        &self.retry_count
+    }
 }
 
 /// Reasons why attempting to dequeue a job didn't yield a job.

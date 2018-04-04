@@ -12,10 +12,15 @@ pub type JobResult = Result<(), String>;
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Args {
     /// The serialized arguments.
-    pub json: String,
+    json: String,
 }
 
 impl Args {
+    /// Get the JSON
+    pub fn json(&self) -> &str {
+        &self.json
+    }
+
     /// Convert into string encoded JSON.
     pub fn to_json(&self) -> RobinResult<String> {
         serde_json::to_string(&self).map_err(Error::from)

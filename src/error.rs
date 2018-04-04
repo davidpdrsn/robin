@@ -1,6 +1,7 @@
 use serde_json;
 use redis;
-use std::io;
+use std::fmt;
+use std::error;
 
 /// The result type used throughout Robin.
 pub type RobinResult<T> = Result<T, Error>;
@@ -24,6 +25,24 @@ pub enum Error {
     UnknownRedisError(String),
 }
 
+impl fmt::Display for Error {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{:?}", self)
+    }
+}
+
+impl error::Error for Error {
+    fn description(&self) -> &str {
+        match self {
+            &Error::UnknownJob(ref name) => name,
+            &Error::JobFailed(ref msg) => msg,
+            &Error::SerdeJsonError(ref err) => err.description(),
+            &Error::RedisError(ref err) => err.description(),
+            &Error::UnknownRedisError(ref msg) => msg,
+        }
+    }
+}
+
 impl From<serde_json::Error> for Error {
     fn from(error: serde_json::Error) -> Error {
         Error::SerdeJsonError(error)
@@ -36,14 +55,24 @@ impl From<redis::RedisError> for Error {
     }
 }
 
+impl<'a> From<&'a Error> for String {
+    fn from(error: &'a Error) -> String {
+        match error {
+            &Error::UnknownJob(ref name) => format!(
+                "The job named {} is unknown and cannot be performed or enqueued",
+                name
+            ),
+            &Error::JobFailed(ref msg) => format!("Job failed with message: {}", msg),
+
+            &Error::SerdeJsonError(ref err) => format!("Error::SerdeJsonError : {}", err),
+            &Error::RedisError(ref err) => format!("Error::RedisError : {}", err),
+            &Error::UnknownRedisError(ref err) => format!("Error::UnknownRedisError : {}", err),
+        }
+    }
+}
+
 impl From<Error> for String {
     fn from(error: Error) -> String {
-        match error {
-            Error::UnknownJob(name) => format!("{} is unknown", name),
-            Error::JobFailed(msg) => format!("Job failed with message: {}", msg),
-            Error::SerdeJsonError(err) => format!("Error::SerdeJsonError : {}", err),
-            Error::RedisError(err) => format!("Error::RedisError : {}", err),
-            Error::UnknownRedisError(err) => format!("Error::UnknownRedisError : {}", err),
-        }
+        String::from(&error)
     }
 }

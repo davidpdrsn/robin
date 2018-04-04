@@ -9,3 +9,12 @@ Background jobs for Rust inspired by ActiveJob and Sidekiq :heart:
 ## Example
 
 See the examples folder.
+
+## Installation
+
+Add this to your `Cargo.toml` and you're good to go
+
+```toml
+[dependencies]
+robin = "0.0.1"
+```

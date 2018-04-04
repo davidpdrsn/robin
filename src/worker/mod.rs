@@ -53,7 +53,7 @@ where
     }
 
     for handle in handles {
-        handle.join().unwrap();
+        handle.join().expect("failed to end worker thread");
     }
 }
 
@@ -79,19 +79,19 @@ fn perform_job(
     iden: QueueIdentifier,
     worker_number: WorkerNumber,
 ) -> LoopControl {
-    match con.dequeue_from(iden, DequeueTimeout(con.config.timeout)) {
+    match con.dequeue_from(iden, DequeueTimeout(con.config().timeout)) {
         Ok((job, args, retry_count)) => {
             let prev_count = retry_count;
             let retry_count = prev_count.increment();
 
-            if retry_count.limit_reached(&con.config) {
+            if retry_count.limit_reached(con.config()) {
                 println!(
                     "Not retrying {} anymore. Retry count was {:?}",
                     job.name().0,
                     prev_count,
                 );
 
-                if con.config.repeat_on_timeout {
+                if con.config().repeat_on_timeout {
                     LoopControl::Continue
                 } else {
                     LoopControl::Break
@@ -120,7 +120,7 @@ fn perform_job(
         Err(NoJobDequeued::BecauseTimeout) => match iden {
             QueueIdentifier::Main => perform_job(con, QueueIdentifier::Retry, worker_number),
             QueueIdentifier::Retry => {
-                if con.config.repeat_on_timeout {
+                if con.config().repeat_on_timeout {
                     LoopControl::Continue
                 } else {
                     LoopControl::Break

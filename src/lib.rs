@@ -1,6 +1,7 @@
 #![deny(missing_docs, missing_debug_implementations, missing_copy_implementations, trivial_casts,
         trivial_numeric_casts, unsafe_code, unstable_features, unused_import_braces,
         unused_qualifications)]
+#![doc(html_root_url = "https://docs.rs/robin/0.0.1")]
 
 //! # Robin
 //!
@@ -18,10 +19,13 @@
 //! extern crate robin;
 //! #[macro_use]
 //! extern crate serde_derive;
-//!
-//! # fn main() {
+//! #
+//! # use std::error::Error;
+//! #
+//! # fn main() { try_main().expect("try_main failed") }
+//! #
+//! # fn try_main() -> Result<(), Box<Error>> {
 //! use robin::prelude::*;
-//! use robin::connection::queue_adapters::QueueIdentifier;
 //!
 //! #[derive(Job)]
 //! enum Jobs {
@@ -46,23 +50,24 @@
 //! # config.worker_count = 1;
 //! let worker_config = config.clone();
 //!
-//! let con = robin::connection::establish(config, Jobs::lookup_job).expect("Failed to connect");
+//! let con = robin::connection::establish(config, Jobs::lookup_job)?;
 //! # con.delete_all();
 //!
-//! assert_eq!(con.main_queue_size().unwrap(), 0);
-//! assert_eq!(con.retry_queue_size().unwrap(), 0);
+//! assert_eq!(con.main_queue_size()?, 0);
+//! assert_eq!(con.retry_queue_size()?, 0);
 //!
 //! for i in 0..5 {
-//!     Jobs::MyJob.perform_later(&con, &JobArgs).unwrap();
+//!     Jobs::MyJob.perform_later(&con, &JobArgs)?;
 //! }
 //!
-//! assert_eq!(con.main_queue_size().unwrap(), 5);
-//! assert_eq!(con.retry_queue_size().unwrap(), 0);
+//! assert_eq!(con.main_queue_size()?, 5);
+//! assert_eq!(con.retry_queue_size()?, 0);
 //!
 //! robin::worker::boot(&worker_config, Jobs::lookup_job);
 //!
-//! assert_eq!(con.main_queue_size().unwrap(), 0);
-//! assert_eq!(con.retry_queue_size().unwrap(), 0);
+//! assert_eq!(con.main_queue_size()?, 0);
+//! assert_eq!(con.retry_queue_size()?, 0);
+//! # Ok(())
 //! # }
 //! ```
 //!
@@ -78,6 +83,8 @@
 //! use robin::prelude::*;
 //! ```
 
+#[macro_use]
+extern crate derive_builder;
 extern crate redis;
 #[macro_use]
 extern crate robin_derives;

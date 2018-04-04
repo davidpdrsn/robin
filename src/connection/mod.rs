@@ -12,8 +12,7 @@ use std::fmt;
 ///
 /// Each `WorkerConnection` has exactly one actual Redis connection.
 pub struct WorkerConnection {
-    /// The configuration used inside the connection.
-    pub config: Config,
+    config: Config,
     queue: RedisQueue,
     lookup_job: Box<LookupJob>,
 }
@@ -25,6 +24,11 @@ impl fmt::Debug for WorkerConnection {
 }
 
 impl WorkerConnection {
+    /// Returns the connections config
+    pub fn config(&self) -> &Config {
+        &self.config
+    }
+
     /// Put a job into the queue.
     ///
     /// This method will enqueue the job regardless of what the `retry_count` is.
@@ -36,15 +40,15 @@ impl WorkerConnection {
         args: &Args,
         retry_count: RetryCount,
     ) -> RobinResult<()> {
-        let enq_job = EnqueuedJob {
-            name: name.0.to_string(),
-            args: args.to_json().expect("todo"),
-            retry_count: retry_count,
-        };
+        let enq_job = EnqueuedJob::build()
+            .name(name.0.clone())
+            .args(args.to_json()?)
+            .retry_count(retry_count)
+            .done();
 
         match iden {
             QueueIdentifier::Main => {
-                println!("Enqueued \"{}\" with {}", name.0, args.json);
+                println!("Enqueued \"{}\" with {}", name.0, args.json());
                 self.queue.enqueue(enq_job, iden)
             }
             QueueIdentifier::Retry => self.queue.enqueue(enq_job, iden),
@@ -64,14 +68,14 @@ impl WorkerConnection {
     ) -> Result<(Box<Job + Send>, String, RetryCount), NoJobDequeued> {
         let enq_job = self.queue.dequeue(&timeout, iden)?;
 
-        let args = enq_job.args;
-        let name = enq_job.name;
+        let args = enq_job.args().to_string();
+        let name = enq_job.name().to_string();
 
         let job = self.lookup_job(&JobName::from(name.clone()))
             .ok_or_else(move || Error::UnknownJob(name))
             .map_err(NoJobDequeued::from)?;
 
-        Ok((job, args, enq_job.retry_count))
+        Ok((job, args, enq_job.retry_count().clone()))
     }
 
     /// Delete all jobs from all queues
