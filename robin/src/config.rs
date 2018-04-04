@@ -36,6 +36,9 @@ pub struct Config {
     /// The number of worker threads to spawn. Each thread will have its own Redis
     /// connection, so make sure you have enough connections available.
     pub worker_count: usize,
+
+    /// The URL that will be used to connect to Redis.
+    pub redis_url: String,
 }
 
 impl Default for Config {
@@ -46,6 +49,7 @@ impl Default for Config {
             repeat_on_timeout: true,
             retry_count_limit: 10,
             worker_count: 4,
+            redis_url: "redis://127.0.0.1/".to_string(),
         }
     }
 }

@@ -4,6 +4,7 @@ use serde_json;
 use super::{DequeueTimeout, EnqueuedJob, NoJobDequeued, QueueIdentifier};
 use redis;
 use std::fmt;
+use config::*;
 
 /// A wrapper around an actual `redis::Connection`.
 pub struct RedisQueue {
@@ -13,16 +14,15 @@ pub struct RedisQueue {
 }
 
 impl RedisQueue {
-    /// Create a new `RedisQueue` with the given namespace. That namespace will be prefixed all
-    /// keys send to Redis.
-    pub fn new_with_namespace(name: &str) -> RobinResult<Self> {
-        let redis_url = "redis://127.0.0.1/";
-        let client = Client::open(redis_url)?;
+    /// Create a new `RedisQueue` using the given config
+    pub fn new(config: &Config) -> RobinResult<Self> {
+        let redis_url = config.redis_url.to_string();
+        let client = Client::open(redis_url.as_ref())?;
         let con = client.get_connection()?;
         Ok(RedisQueue {
             redis: con,
             redis_url: redis_url.to_string(),
-            key: name.to_string(),
+            key: config.redis_namespace.to_string(),
         })
     }
 

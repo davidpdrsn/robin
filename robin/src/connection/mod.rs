@@ -122,7 +122,7 @@ pub fn establish<T: 'static + LookupJob>(
     config: Config,
     lookup_job: T,
 ) -> RobinResult<WorkerConnection> {
-    RedisQueue::new_with_namespace(&config.redis_namespace).map(|redis_queue| WorkerConnection {
+    RedisQueue::new(&config).map(|redis_queue| WorkerConnection {
         queue: redis_queue,
         config: config,
         lookup_job: Box::new(lookup_job),

@@ -176,6 +176,7 @@ impl TestConfig for Config {
             repeat_on_timeout: false,
             retry_count_limit: 4,
             worker_count: 1,
+            redis_url: "redis://127.0.0.1/".to_string(),
         }
     }
 }
