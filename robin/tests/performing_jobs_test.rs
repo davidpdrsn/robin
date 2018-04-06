@@ -28,6 +28,25 @@ fn enqueuing_and_performing_jobs() {
 }
 
 #[test]
+fn perform_now_test() {
+    let mut t = TestHelper::new();
+
+    let args = VerifyableJobArgs {
+        file: "perform_now_test",
+    };
+
+    t.setup(&args);
+
+    let client = t.spawn_client(move |con| Jobs::VerifyableJob.perform_now(&con, &args).unwrap());
+
+    client.join().unwrap();
+
+    Jobs::assert_verifiable_job_performed_with(&args);
+
+    t.teardown(&args);
+}
+
+#[test]
 fn running_multiple_jobs() {
     let mut t = TestHelper::new();
 
