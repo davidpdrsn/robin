@@ -11,7 +11,10 @@ before_script:
   - rustup component add rustfmt-preview
 
 script:
-  - cargo fmt --all -- --write-mode=diff
+  - |
+    if [[ "$TRAVIS_RUST_VERSION" == "stable" ]]; then
+      cargo fmt --all -- --write-mode=diff
+    fi
   - cargo test --all
 
 services:
