@@ -56,8 +56,8 @@ pub trait Job {
 /// This trait is automatically implemented for types that implement `Job`
 /// so you shouldn't ever need to implement this manually.
 pub trait PerformJob {
-    // TODO: Implement perform_now
-    // fn perform_now<A: Serialize>(&self, con: &WorkerConnection, args: A) -> RobinResult<()>;
+    /// Perform the job right now without blocking.
+    fn perform_now<A: Serialize>(&self, con: &WorkerConnection, args: A) -> RobinResult<()>;
 
     /// Put the job into the queue for processing at a later point.
     fn perform_later<A: Serialize>(&self, con: &WorkerConnection, args: A) -> RobinResult<()>;
@@ -67,6 +67,11 @@ impl<T> PerformJob for T
 where
     T: Job,
 {
+    fn perform_now<A: Serialize>(&self, con: &WorkerConnection, args: A) -> RobinResult<()> {
+        self.perform(con, &serialize_arg(args)?)
+            .map_err(|s| Error::JobFailed(s))
+    }
+
     fn perform_later<A: Serialize>(&self, con: &WorkerConnection, args: A) -> RobinResult<()> {
         con.enqueue_to(
             QueueIdentifier::Main,
