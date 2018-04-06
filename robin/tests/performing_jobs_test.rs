@@ -133,3 +133,27 @@ fn job_doesnt_get_retried_forever() {
 
     t.teardown(&args);
 }
+
+#[test]
+fn jobs_with_unit_as_args() {
+    use robin::error::Error;
+
+    #[derive(Job)]
+    enum Jobs {
+        #[perform_with(perform_my_job)]
+        JobWithoutArgs,
+    }
+
+    fn perform_my_job(_con: &WorkerConnection, args: ()) -> JobResult {
+        Err("it worked".to_string())
+    }
+
+    let con = establish(Config::default(), Jobs::lookup_job).expect("Failed to connect");
+
+    let result = Jobs::JobWithoutArgs.perform_now(&con, &());
+
+    match result {
+        Err(Error::JobFailed(msg)) => assert_eq!(msg, "it worked".to_string()),
+        _ => panic!("no match"),
+    }
+}
