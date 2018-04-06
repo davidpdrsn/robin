@@ -9,6 +9,7 @@ for Rust libraries in [RFC #1105](https://github.com/rust-lang/rfcs/blob/master/
 ### Added
 
 - `Config` has gotten a `redis_url` field. That URL will be used when connecting to Redis in workers and clients. Defaults to `redis://127.0.0.1/`.
+- `perform_now` has been added back. It can be called on anything that also has `perform_later`, but will block and perform the job right now.
 
 ### Changed
 
