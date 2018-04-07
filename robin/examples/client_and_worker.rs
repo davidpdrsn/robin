@@ -25,7 +25,7 @@ fn worker(config: Config) {
 fn client(config: Config) {
     let con = establish(config, Jobs::lookup_job).expect("Failed to connect");
 
-    let n = 100;
+    let n = 10;
 
     for i in 0..n {
         println!("{}/{}", i + 1, n);
