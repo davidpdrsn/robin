@@ -1,7 +1,6 @@
 use serde_json;
 use redis;
-use std::fmt;
-use std::error;
+use std::{self, fmt};
 
 /// The result type used throughout Robin.
 pub type RobinResult<T> = Result<T, Error>;
@@ -13,7 +12,7 @@ pub enum Error {
     UnknownJob(String),
 
     /// The job failed to perform and might be retried.
-    JobFailed(String),
+    JobFailed(Box<std::error::Error>),
 
     /// Some serialization/deserialization failed
     SerdeJsonError(serde_json::Error),
@@ -31,11 +30,11 @@ impl fmt::Display for Error {
     }
 }
 
-impl error::Error for Error {
+impl std::error::Error for Error {
     fn description(&self) -> &str {
         match self {
             &Error::UnknownJob(ref name) => name,
-            &Error::JobFailed(ref msg) => msg,
+            &Error::JobFailed(ref err) => err.description(),
             &Error::SerdeJsonError(ref err) => err.description(),
             &Error::RedisError(ref err) => err.description(),
             &Error::UnknownRedisError(ref msg) => msg,
@@ -52,27 +51,5 @@ impl From<serde_json::Error> for Error {
 impl From<redis::RedisError> for Error {
     fn from(error: redis::RedisError) -> Error {
         Error::RedisError(error)
-    }
-}
-
-impl<'a> From<&'a Error> for String {
-    fn from(error: &'a Error) -> String {
-        match error {
-            &Error::UnknownJob(ref name) => format!(
-                "The job named {} is unknown and cannot be performed or enqueued",
-                name
-            ),
-            &Error::JobFailed(ref msg) => format!("Job failed with message: {}", msg),
-
-            &Error::SerdeJsonError(ref err) => format!("Error::SerdeJsonError : {}", err),
-            &Error::RedisError(ref err) => format!("Error::RedisError : {}", err),
-            &Error::UnknownRedisError(ref err) => format!("Error::UnknownRedisError : {}", err),
-        }
-    }
-}
-
-impl From<Error> for String {
-    fn from(error: Error) -> String {
-        String::from(&error)
     }
 }

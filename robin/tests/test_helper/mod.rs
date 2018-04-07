@@ -1,5 +1,6 @@
 pub use robin::prelude::*;
 
+use std::{self, fmt};
 use std::thread::{self, JoinHandle};
 use std::fs::{self, File};
 use std::io::{BufWriter, Write};
@@ -94,14 +95,14 @@ fn perform_pass_second_time(args: PassSecondTimeArgs, _con: &WorkerConnection) -
             args.file()
                 .map(|file| write_tmp_test_file(file, "been_here"));
 
-            Err("This job is supposed to fail the first time".to_string())
+            TestError::with_msg("This job is supposed to fail the first time")
         }
         None => Ok(()),
     }
 }
 
 fn perform_fail_forever(_args: FailForeverArgs, _con: &WorkerConnection) -> JobResult {
-    Err("Will always fail".to_string())
+    TestError::with_msg("Will always fail")
 }
 
 #[derive(Serialize, Deserialize, Debug, Copy, Clone)]
@@ -177,5 +178,26 @@ impl TestConfig for Config {
             worker_count: 1,
             redis_url: "redis://127.0.0.1/".to_string(),
         }
+    }
+}
+
+#[derive(Debug)]
+pub struct TestError(&'static str);
+
+impl TestError {
+    pub fn with_msg(msg: &'static str) -> JobResult {
+        Err(Box::new(TestError(msg)))
+    }
+}
+
+impl fmt::Display for TestError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{:?}", self)
+    }
+}
+
+impl std::error::Error for TestError {
+    fn description(&self) -> &str {
+        self.0
     }
 }

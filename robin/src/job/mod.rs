@@ -4,9 +4,10 @@ use serde::{Deserialize, Serialize};
 use connection::WorkerConnection;
 use connection::queue_adapters::{QueueIdentifier, RetryCount};
 use error::{Error, RobinResult};
+use std;
 
-/// The result type returned when performing jobs.
-pub type JobResult = Result<(), String>;
+/// The result type returned when performing jobs
+pub type JobResult = Result<(), Box<std::error::Error>>;
 
 /// A type that holds serialized job arguments.
 #[derive(Serialize, Deserialize, Debug)]
@@ -35,10 +36,7 @@ impl Args {
     pub fn deserialize<'a, T: Deserialize<'a>>(&'a self) -> RobinResult<T> {
         match serde_json::from_str(&self.json) {
             Ok(v) => Ok(v),
-            Err(e) => {
-                let msg = format!("Failed deserializing {:?}\nSerde error: {:?}", self.json, e);
-                Err(Error::JobFailed(msg))
-            }
+            Err(e) => Err(Error::SerdeJsonError(e)),
         }
     }
 }
@@ -69,7 +67,7 @@ where
 {
     fn perform_now<A: Serialize>(&self, args: A, con: &WorkerConnection) -> RobinResult<()> {
         self.perform(&serialize_arg(args)?, con)
-            .map_err(|s| Error::JobFailed(s))
+            .map_err(|e| Error::JobFailed(e))
     }
 
     fn perform_later<A: Serialize>(&self, args: A, con: &WorkerConnection) -> RobinResult<()> {

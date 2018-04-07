@@ -15,6 +15,7 @@ for Rust libraries in [RFC #1105](https://github.com/rust-lang/rfcs/blob/master/
 ### Changed
 
 - Functions that previously took the connection in the first place, and job arguments in the second place now take the connection in the last place. That was mainly `perform_now` and `perform_later`.
+- The error type in `JobResult` has been changed from `String` to `Box<std::error::Error>`. Allows clients to keep using their own error types without having to map errors to strings all the time.
 
 ### Deprecated
 
