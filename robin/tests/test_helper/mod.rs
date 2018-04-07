@@ -71,12 +71,12 @@ impl Jobs {
     }
 }
 
-fn perform_verifyable_job(_con: &WorkerConnection, args: VerifyableJobArgs) -> JobResult {
+fn perform_verifyable_job(args: VerifyableJobArgs, _con: &WorkerConnection) -> JobResult {
     write_tmp_test_file(args.file, args.file);
     Ok(())
 }
 
-fn perform_pass_second_time(_con: &WorkerConnection, args: PassSecondTimeArgs) -> JobResult {
+fn perform_pass_second_time(args: PassSecondTimeArgs, _con: &WorkerConnection) -> JobResult {
     let contents = args.file().map(|file| read_tmp_test_file(file));
 
     match contents {
@@ -100,7 +100,7 @@ fn perform_pass_second_time(_con: &WorkerConnection, args: PassSecondTimeArgs) -
     }
 }
 
-fn perform_fail_forever(_con: &WorkerConnection, _args: FailForeverArgs) -> JobResult {
+fn perform_fail_forever(_args: FailForeverArgs, _con: &WorkerConnection) -> JobResult {
     Err("Will always fail".to_string())
 }
 

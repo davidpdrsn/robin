@@ -147,7 +147,7 @@ fn perform_or_retry(
     worker_number: WorkerNumber,
 ) {
     let args = serde_json::from_str(args).expect("todo");
-    let job_result = job.perform(&con, &args);
+    let job_result = job.perform(&args, &con);
 
     match job_result {
         Ok(()) => println!(

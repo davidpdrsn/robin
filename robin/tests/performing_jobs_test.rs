@@ -16,7 +16,7 @@ fn enqueuing_and_performing_jobs() {
 
     t.setup(&args);
 
-    let client = t.spawn_client(move |con| Jobs::VerifyableJob.perform_later(&con, &args).unwrap());
+    let client = t.spawn_client(move |con| Jobs::VerifyableJob.perform_later(&args, &con).unwrap());
     let worker = t.spawn_worker();
 
     client.join().unwrap();
@@ -37,7 +37,7 @@ fn perform_now_test() {
 
     t.setup(&args);
 
-    let client = t.spawn_client(move |con| Jobs::VerifyableJob.perform_now(&con, &args).unwrap());
+    let client = t.spawn_client(move |con| Jobs::VerifyableJob.perform_now(&args, &con).unwrap());
 
     client.join().unwrap();
 
@@ -65,10 +65,10 @@ fn running_multiple_jobs() {
     t.setup(&args_three);
 
     let client = t.spawn_client(move |con| {
-        Jobs::VerifyableJob.perform_later(&con, &args_one).unwrap();
-        Jobs::VerifyableJob.perform_later(&con, &args_two).unwrap();
+        Jobs::VerifyableJob.perform_later(&args_one, &con).unwrap();
+        Jobs::VerifyableJob.perform_later(&args_two, &con).unwrap();
         Jobs::VerifyableJob
-            .perform_later(&con, &args_three)
+            .perform_later(&args_three, &con)
             .unwrap();
     });
 
@@ -97,7 +97,7 @@ fn job_fails_then_gets_retried_and_passes() {
 
     let client = t.spawn_client(move |con| {
         Jobs::PassSecondTime
-            .perform_later(&con, &args)
+            .perform_later(&args, &con)
             .expect("Failed to enqueue job");
     });
 
@@ -122,7 +122,7 @@ fn job_doesnt_get_retried_forever() {
 
     let client = t.spawn_client(move |con| {
         Jobs::FailForever
-            .perform_later(&con, &args)
+            .perform_later(&args, &con)
             .expect("Failed to enqueue job");
     });
 
@@ -144,13 +144,13 @@ fn jobs_with_unit_as_args() {
         JobWithoutArgs,
     }
 
-    fn perform_my_job(_con: &WorkerConnection, args: ()) -> JobResult {
+    fn perform_my_job(args: (), _con: &WorkerConnection) -> JobResult {
         Err("it worked".to_string())
     }
 
     let con = establish(Config::default(), Jobs::lookup_job).expect("Failed to connect");
 
-    let result = Jobs::JobWithoutArgs.perform_now(&con, &());
+    let result = Jobs::JobWithoutArgs.perform_now(&(), &con);
 
     match result {
         Err(Error::JobFailed(msg)) => assert_eq!(msg, "it worked".to_string()),

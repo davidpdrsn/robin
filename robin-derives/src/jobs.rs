@@ -85,7 +85,7 @@ fn job_impl(name: &Ident, enum_data: &DataEnum) -> Tokens {
             };
 
             quote! {
-                #qualified_name => { #perform_with(con, args.deserialize()?) }
+                #qualified_name => { #perform_with(args.deserialize()?, con) }
             }
         })
         .collect::<Vec<_>>();
@@ -98,7 +98,7 @@ fn job_impl(name: &Ident, enum_data: &DataEnum) -> Tokens {
                 }
             }
 
-            fn perform(&self, con: &WorkerConnection, args: &Args) -> JobResult {
+            fn perform(&self, args: &Args, con: &WorkerConnection) -> JobResult {
                 match *self {
                     #(#job_perform_match_arms),*
                 }
