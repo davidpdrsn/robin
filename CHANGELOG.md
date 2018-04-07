@@ -8,6 +8,24 @@ for Rust libraries in [RFC #1105](https://github.com/rust-lang/rfcs/blob/master/
 
 ### Added
 
+N/A
+
+### Changed
+
+N/A
+
+### Deprecated
+
+N/A
+
+### Fixed
+
+N/A
+
+## [0.2.0] - 2018-04-07
+
+### Added
+
 - `Config` has gotten a `redis_url` field. That URL will be used when connecting to Redis in workers and clients. Defaults to `redis://127.0.0.1/`.
 - `perform_now` has been added back. It can be called on anything that also has `perform_later`, but will block and perform the job right now.
 - Make the `perform_with` attribute on `#[derive(Job)]` optional. Will default to a function called `perform_my_job` if the enum variant is `MyJob`.
@@ -28,3 +46,5 @@ N/A
 ## 0.1.0 - 2018-04-04
 
 Initial release.
+
+[0.2.0]: https://github.com/davidpdrsn/robin/compare/0.1.0...0.2.0

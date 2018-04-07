@@ -1,6 +1,6 @@
 [package]
 name = "robin-derives"
-version = "0.1.0"
+version = "0.2.0"
 authors = ["David Pedersen <david.pdrsn@gmail.com>"]
 license = "MIT"
 description = "Custom derives used in the Robin crate"

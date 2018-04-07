@@ -8,7 +8,7 @@ license = "MIT"
 name = "robin"
 readme = "README.md"
 repository = "https://github.com/davidpdrsn/robin.git"
-version = "0.1.0"
+version = "0.2.0"
 
 [dependencies]
 serde = "1.0"
@@ -16,7 +16,7 @@ serde_derive = "1.0"
 serde_json = "1.0.11"
 redis = "0.8.0"
 uuid = { version = "0.6", features = ["v4"] }
-robin-derives = { version = "0.1.0", path = "../robin-derives" }
+robin-derives = { version = "0.2.0", path = "../robin-derives" }
 typesafe-derive-builder = { version = "0.1.0", path = "../typesafe-derive-builder" }
 
 [dev-dependencies]
