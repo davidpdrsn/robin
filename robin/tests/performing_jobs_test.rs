@@ -144,8 +144,8 @@ fn jobs_with_unit_as_args() {
         JobWithoutArgs,
     }
 
-    fn perform_my_job(args: (), _con: &WorkerConnection) -> JobResult {
-        Err("it worked".to_string())
+    fn perform_my_job(_args: (), _con: &WorkerConnection) -> JobResult {
+        TestError::with_msg("it worked")
     }
 
     let con = establish(Config::default(), Jobs::lookup_job).expect("Failed to connect");
@@ -153,7 +153,7 @@ fn jobs_with_unit_as_args() {
     let result = Jobs::JobWithoutArgs.perform_now(&(), &con);
 
     match result {
-        Err(Error::JobFailed(msg)) => assert_eq!(msg, "it worked".to_string()),
+        Err(Error::JobFailed(msg)) => assert_eq!(msg.description(), "it worked".to_string()),
         _ => panic!("no match"),
     }
 }
