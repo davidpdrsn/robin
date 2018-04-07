@@ -29,7 +29,7 @@ fn client(config: Config) {
 
     for i in 0..n {
         println!("{}/{}", i + 1, n);
-        Jobs::MyJob.perform_later(&con, &JobArgs).unwrap();
+        Jobs::MyJob.perform_later(&JobArgs, &con).unwrap();
     }
 }
 
@@ -42,7 +42,7 @@ enum Jobs {
 #[derive(Serialize, Deserialize, Debug, Copy, Clone)]
 pub struct JobArgs;
 
-fn perform_my_job(_con: &WorkerConnection, args: JobArgs) -> JobResult {
+fn perform_my_job(args: JobArgs, _con: &WorkerConnection) -> JobResult {
     println!("Job performed with {:?}", args);
     Ok(())
 }

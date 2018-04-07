@@ -14,7 +14,7 @@ for Rust libraries in [RFC #1105](https://github.com/rust-lang/rfcs/blob/master/
 
 ### Changed
 
-N/A
+- Functions that previously took the connection in the first place, and job arguments in the second place now take the connection in the last place. That was mainly `perform_now` and `perform_later`.
 
 ### Deprecated
 

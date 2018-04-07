@@ -49,7 +49,7 @@ pub trait Job {
     fn name(&self) -> JobName;
 
     /// What the job actually does.
-    fn perform(&self, con: &WorkerConnection, args: &Args) -> JobResult;
+    fn perform(&self, args: &Args, con: &WorkerConnection) -> JobResult;
 }
 
 /// Trait for either performing immediately, or more commonly, later.
@@ -57,22 +57,22 @@ pub trait Job {
 /// so you shouldn't ever need to implement this manually.
 pub trait PerformJob {
     /// Perform the job right now without blocking.
-    fn perform_now<A: Serialize>(&self, con: &WorkerConnection, args: A) -> RobinResult<()>;
+    fn perform_now<A: Serialize>(&self, args: A, con: &WorkerConnection) -> RobinResult<()>;
 
     /// Put the job into the queue for processing at a later point.
-    fn perform_later<A: Serialize>(&self, con: &WorkerConnection, args: A) -> RobinResult<()>;
+    fn perform_later<A: Serialize>(&self, args: A, con: &WorkerConnection) -> RobinResult<()>;
 }
 
 impl<T> PerformJob for T
 where
     T: Job,
 {
-    fn perform_now<A: Serialize>(&self, con: &WorkerConnection, args: A) -> RobinResult<()> {
-        self.perform(con, &serialize_arg(args)?)
+    fn perform_now<A: Serialize>(&self, args: A, con: &WorkerConnection) -> RobinResult<()> {
+        self.perform(&serialize_arg(args)?, con)
             .map_err(|s| Error::JobFailed(s))
     }
 
-    fn perform_later<A: Serialize>(&self, con: &WorkerConnection, args: A) -> RobinResult<()> {
+    fn perform_later<A: Serialize>(&self, args: A, con: &WorkerConnection) -> RobinResult<()> {
         con.enqueue_to(
             QueueIdentifier::Main,
             self.name(),
