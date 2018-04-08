@@ -18,6 +18,7 @@ redis = "0.8.0"
 uuid = { version = "0.6", features = ["v4"] }
 robin-derives = { version = "0.2.0", path = "../robin-derives" }
 typesafe-derive-builder = { version = "0.1.0", path = "../typesafe-derive-builder" }
+num_cpus = "1.8.0"
 
 [dev-dependencies]
 version-sync = "0.5"

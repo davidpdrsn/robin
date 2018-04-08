@@ -83,6 +83,7 @@
 //! use robin::prelude::*;
 //! ```
 
+extern crate num_cpus;
 extern crate redis;
 #[macro_use]
 extern crate robin_derives;
