@@ -8,6 +8,24 @@ for Rust libraries in [RFC #1105](https://github.com/rust-lang/rfcs/blob/master/
 
 ### Added
 
+N/A
+
+### Changed
+
+N/A
+
+### Deprecated
+
+N/A
+
+### Fixed
+
+N/A
+
+## [0.3.0] - 2018-04-08
+
+### Added
+
 - `jobs!` macro which removes all boilerplate around defining jobs.
 - `robin_establish_connection!` macro which makes it simpler to open a new connection without needing to know about `LookupJob`.
 - `robin_boot_worker!` macro which makes it simpler to boot the worker without needing to know about `LookupJob`.
@@ -50,4 +68,5 @@ N/A
 
 Initial release.
 
+[0.3.0]: https://github.com/davidpdrsn/robin/compare/0.2.0...v0.3.0
 [0.2.0]: https://github.com/davidpdrsn/robin/compare/0.1.0...0.2.0

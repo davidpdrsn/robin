@@ -18,7 +18,7 @@ Add this to your `Cargo.toml` and you're good to go
 
 ```toml
 [dependencies]
-robin = "0.2.0"
+robin = "0.3.0"
 ```
 
 Robin uses Redis for storing jobs, so make sure you have that installed.
