@@ -1,3 +1,4 @@
+#[macro_use]
 extern crate robin;
 #[macro_use]
 extern crate serde_derive;
@@ -138,19 +139,19 @@ fn job_doesnt_get_retried_forever() {
 fn jobs_with_unit_as_args() {
     use robin::error::Error;
 
-    #[derive(Job)]
-    enum Jobs {
-        #[perform_with(perform_my_job)]
+    jobs! {
         JobWithoutArgs,
     }
 
-    fn perform_my_job(_args: (), _con: &WorkerConnection) -> JobResult {
-        TestError::with_msg("it worked")
+    impl JobWithoutArgs {
+        fn perform(_args: (), _con: &WorkerConnection) -> JobResult {
+            TestError::with_msg("it worked")
+        }
     }
 
-    let con = establish(Config::default(), Jobs::lookup_job).expect("Failed to connect");
+    let con = establish(Config::default(), jobs::lookup_job).expect("Failed to connect");
 
-    let result = Jobs::JobWithoutArgs.perform_now(&(), &con);
+    let result = JobWithoutArgs::perform_now(&(), &con);
 
     match result {
         Err(Error::JobFailed(msg)) => assert_eq!(msg.description(), "it worked".to_string()),

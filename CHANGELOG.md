@@ -8,11 +8,14 @@ for Rust libraries in [RFC #1105](https://github.com/rust-lang/rfcs/blob/master/
 
 ### Added
 
-N/A
+- `jobs!` macro which removes all boilerplate around defining jobs.
+- `robin_establish_connection!` macro which makes it simpler to open a new connection without needing to know about `LookupJob`.
+- `robin_boot_worker!` macro which makes it simpler to boot the worker without needing to know about `LookupJob`.
+- While the worker is running it will now print jobs/second
 
 ### Changed
 
-N/A
+- `Config.worker_count` will now default to number of CPUs.
 
 ### Deprecated
 

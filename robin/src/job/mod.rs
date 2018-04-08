@@ -30,7 +30,7 @@ impl Args {
     /// Generic function for deserializing the encoded arguments into the type
     /// required by the job.
     ///
-    /// Will return `Err(Error::JobFailed(_))` if deserialization fails.
+    /// Will return `Err(Error::SerdeJsonError(_))` if deserialization fails.
     /// This will most likely happen if a given job doesn't support the arguments type you're
     /// trying to deserialize into.
     pub fn deserialize<'a, T: Deserialize<'a>>(&'a self) -> RobinResult<T> {
@@ -41,7 +41,7 @@ impl Args {
     }
 }
 
-/// The trait that defines what a particular job should do.
+/// The trait that defines what a particular job should does.
 pub trait Job {
     /// The name of the job. Required to put the job into Redis.
     fn name(&self) -> JobName;

@@ -32,8 +32,9 @@ fn lookup_job_impl(name: &Ident, enum_data: &DataEnum) -> Tokens {
         .collect::<Vec<_>>();
 
     quote! {
-        impl #name {
-            fn lookup_job(name: &JobName) -> Option<Box<Job + Send>> {
+        pub mod jobs {
+            #[inline]
+            pub fn lookup_job(name: &JobName) -> Option<Box<Job + Send>> {
                 match name.0.as_ref() {
                     #(#lookup_job_match_arms),*
                     _ => None,
@@ -77,9 +78,7 @@ fn job_impl(name: &Ident, enum_data: &DataEnum) -> Tokens {
 
             let perform_with = match perform_with {
                 None => {
-                    let name = format!("perform_{}", underscore(&variant_name.to_string()));
-                    let name = Ident::from(name);
-                    quote! { #name }
+                    quote! { #variant_name::perform }
                 }
                 Some(perform_with) => perform_with,
             };
@@ -92,12 +91,14 @@ fn job_impl(name: &Ident, enum_data: &DataEnum) -> Tokens {
 
     quote! {
         impl Job for #name {
+            #[inline]
             fn name(&self) -> JobName {
                 match *self {
                     #(#job_name_match_arms),*
                 }
             }
 
+            #[inline]
             fn perform(&self, args: &Args, con: &WorkerConnection) -> JobResult {
                 match *self {
                     #(#job_perform_match_arms),*

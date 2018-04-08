@@ -10,11 +10,17 @@ use serde_json;
 
 /// Boot the worker.
 ///
+/// **NOTE:** You normally wouldn't need to call this. Instead use the
+/// `robin_boot_worker!` macro in the `macros` module.
+///
 /// This will spawn the numbers of threads set by `config.worker_count`. Each thread
-/// will dequeue a job, perform, and repeat.
+/// will dequeue a job, perform it, and repeat.
 ///
 /// Make sure the config you're using here is the same config you use to establish the connection
-/// in `connection::establish`.
+/// in `robin_establish_connection!`.
+///
+/// This will also print some metrics every few seconds. The output look like "Robin worker metric: Jobs per second 11000".
+/// ```
 pub fn boot<T>(config: &Config, lookup_job: T)
 where
     T: 'static,

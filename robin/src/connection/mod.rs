@@ -113,8 +113,11 @@ impl WorkerConnection {
 
 /// Create a new connection.
 ///
+/// **NOTE:** You normally wouldn't need to call this. Instead use the
+/// `robin_establish_connection!` macro in the `macros` module.
+///
 /// The lookup function is necessary for parsing the `String` we get from Redis
-/// into a Rust type.
+/// into a job type.
 ///
 /// Make sure the config you're using here is the same config you use to boot the worker in
 /// `worker::boot`.
@@ -129,7 +132,7 @@ pub fn establish<T: 'static + LookupJob>(
     })
 }
 
-/// Trait that maps a `String` given to Robin by Redis to an actual Rust type.
+/// Trait that maps a `String` given to Robin by Redis to an actual job type.
 pub trait LookupJob {
     /// Perform the lookup.
     fn lookup(&self, name: &JobName) -> Option<Box<Job + Send>>;

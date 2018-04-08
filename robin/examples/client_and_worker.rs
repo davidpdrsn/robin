@@ -1,3 +1,4 @@
+#[macro_use]
 extern crate robin;
 #[macro_use]
 extern crate serde_derive;
@@ -19,33 +20,33 @@ fn main() {
 }
 
 fn worker(config: Config) {
-    robin::worker::boot(&config, Jobs::lookup_job);
+    robin_boot_worker!(&config);
 }
 
 fn client(config: Config) {
-    let con = establish(config, Jobs::lookup_job).expect("Failed to connect");
+    let con = robin_establish_connection!(config).expect("Failed to connect");
 
     let n = 10;
 
     for i in 0..n {
         println!("{}/{}", i + 1, n);
-        Jobs::MyJob.perform_later(&JobArgs, &con).unwrap();
+        MyJob::perform_later(&JobArgs, &con).unwrap();
     }
 }
 
-#[derive(Job)]
-enum Jobs {
-    #[perform_with(perform_my_job)]
+jobs! {
     MyJob,
+}
+
+impl MyJob {
+    fn perform(args: JobArgs, _con: &WorkerConnection) -> JobResult {
+        println!("Job performed with {:?}", args);
+        Ok(())
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug, Copy, Clone)]
 pub struct JobArgs;
-
-fn perform_my_job(args: JobArgs, _con: &WorkerConnection) -> JobResult {
-    println!("Job performed with {:?}", args);
-    Ok(())
-}
 
 fn run_as_client() -> bool {
     let args = cmd_args();

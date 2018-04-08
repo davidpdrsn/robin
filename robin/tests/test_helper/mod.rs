@@ -22,7 +22,7 @@ impl TestHelper {
     pub fn setup<T: WithTempFile>(&self, args: &T) {
         fs::create_dir("tests/tmp").ok();
 
-        let con = establish(Config::test_config(&self.uuid), Jobs::lookup_job)
+        let con = establish(Config::test_config(&self.uuid), jobs::lookup_job)
             .expect("Failed to connect");
 
         con.delete_all().unwrap();
@@ -41,14 +41,14 @@ impl TestHelper {
         let uuid = self.uuid.clone();
         thread::spawn(move || {
             let con =
-                establish(Config::test_config(&uuid), Jobs::lookup_job).expect("Failed to connect");
+                establish(Config::test_config(&uuid), jobs::lookup_job).expect("Failed to connect");
             f(con)
         })
     }
 
     pub fn spawn_worker(&mut self) -> JoinHandle<()> {
         let uuid = self.uuid.clone();
-        thread::spawn(move || boot(&Config::test_config(&uuid), Jobs::lookup_job))
+        thread::spawn(move || boot(&Config::test_config(&uuid), jobs::lookup_job))
     }
 }
 
@@ -62,6 +62,7 @@ pub enum Jobs {
     VerifyableJob,
     #[perform_with(perform_pass_second_time)]
     PassSecondTime,
+    #[perform_with(perform_fail_forever)]
     FailForever,
 }
 
