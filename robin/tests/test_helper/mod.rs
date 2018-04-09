@@ -22,7 +22,7 @@ impl TestHelper {
     pub fn setup<T: WithTempFile>(&self, args: &T) {
         fs::create_dir("tests/tmp").ok();
 
-        let con = establish(Config::test_config(&self.uuid), jobs::lookup_job)
+        let con = establish(Config::test_config(&self.uuid), __robin_lookup_job)
             .expect("Failed to connect");
 
         con.delete_all().unwrap();
@@ -40,15 +40,15 @@ impl TestHelper {
     {
         let uuid = self.uuid.clone();
         thread::spawn(move || {
-            let con =
-                establish(Config::test_config(&uuid), jobs::lookup_job).expect("Failed to connect");
+            let con = establish(Config::test_config(&uuid), __robin_lookup_job)
+                .expect("Failed to connect");
             f(con)
         })
     }
 
     pub fn spawn_worker(&mut self) -> JoinHandle<()> {
         let uuid = self.uuid.clone();
-        thread::spawn(move || boot(&Config::test_config(&uuid), jobs::lookup_job))
+        thread::spawn(move || boot(&Config::test_config(&uuid), __robin_lookup_job))
     }
 }
 
@@ -56,54 +56,54 @@ pub trait WithTempFile {
     fn file(&self) -> Option<&str>;
 }
 
-#[derive(Job)]
-pub enum Jobs {
-    #[perform_with(perform_verifyable_job)]
+jobs! {
     VerifyableJob,
-    #[perform_with(perform_pass_second_time)]
     PassSecondTime,
-    #[perform_with(perform_fail_forever)]
     FailForever,
 }
 
-impl Jobs {
-    pub fn assert_verifiable_job_performed_with(args: &VerifyableJobArgs) {
-        let contents: String = read_tmp_test_file(args.file).unwrap();
-        assert_eq!(contents, args.file);
+pub fn assert_verifiable_job_performed_with(args: &VerifyableJobArgs) {
+    let contents: String = read_tmp_test_file(args.file).unwrap();
+    assert_eq!(contents, args.file);
+}
+
+impl VerifyableJob {
+    fn perform(args: VerifyableJobArgs, _con: &WorkerConnection) -> JobResult {
+        write_tmp_test_file(args.file, args.file);
+        Ok(())
     }
 }
 
-fn perform_verifyable_job(args: VerifyableJobArgs, _con: &WorkerConnection) -> JobResult {
-    write_tmp_test_file(args.file, args.file);
-    Ok(())
-}
+impl PassSecondTime {
+    fn perform(args: PassSecondTimeArgs, _con: &WorkerConnection) -> JobResult {
+        let contents = args.file().map(|file| read_tmp_test_file(file));
 
-fn perform_pass_second_time(args: PassSecondTimeArgs, _con: &WorkerConnection) -> JobResult {
-    let contents = args.file().map(|file| read_tmp_test_file(file));
-
-    match contents {
-        Some(Ok(s)) => {
-            if &s == "been_here" {
-                args.file().map(|file| write_tmp_test_file(file, "OK"));
-                Ok(())
-            } else {
-                panic!(format!("File contained something different {}", s))
+        match contents {
+            Some(Ok(s)) => {
+                if &s == "been_here" {
+                    args.file().map(|file| write_tmp_test_file(file, "OK"));
+                    Ok(())
+                } else {
+                    panic!(format!("File contained something different {}", s))
+                }
             }
-        }
-        // File didn't exist
-        Some(Err(error)) => {
-            assert_eq!(error.kind(), io::ErrorKind::NotFound);
-            args.file()
-                .map(|file| write_tmp_test_file(file, "been_here"));
+            // File didn't exist
+            Some(Err(error)) => {
+                assert_eq!(error.kind(), io::ErrorKind::NotFound);
+                args.file()
+                    .map(|file| write_tmp_test_file(file, "been_here"));
 
-            TestError::with_msg("This job is supposed to fail the first time")
+                TestError::with_msg("This job is supposed to fail the first time")
+            }
+            None => Ok(()),
         }
-        None => Ok(()),
     }
 }
 
-fn perform_fail_forever(_args: FailForeverArgs, _con: &WorkerConnection) -> JobResult {
-    TestError::with_msg("Will always fail")
+impl FailForever {
+    fn perform(_args: FailForeverArgs, _con: &WorkerConnection) -> JobResult {
+        TestError::with_msg("Will always fail")
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug, Copy, Clone)]

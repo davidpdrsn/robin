@@ -3,25 +3,18 @@ macro_rules! jobs {
     (
         $($id:ident,)*
     ) => {
-        #[derive(Job)]
-        enum __RobinJobs {
-            $(
-                $id,
-            )*
-        }
-
         $(
             pub struct $id;
 
             impl Job for $id {
                 #[inline]
                 fn name(&self) -> JobName {
-                    __RobinJobs::$id.name()
+                    JobName::from(stringify!($id))
                 }
 
                 #[inline]
                 fn perform(&self, args: &Args, con: &WorkerConnection) -> JobResult {
-                    __RobinJobs::$id.perform(args, con)
+                    $id::perform(args.deserialize()?, con)
                 }
             }
 
@@ -45,19 +38,28 @@ macro_rules! jobs {
                 }
             }
         )*
+
+        pub fn __robin_lookup_job(name: &JobName) -> Option<Box<Job + Send>> {
+            match name.0.as_ref() {
+                $(
+                    stringify!($id) => Some(Box::new($id)),
+                )*
+                _ => None,
+            }
+        }
     }
 }
 
 #[macro_export]
 macro_rules! robin_establish_connection {
     ($config:expr) => (
-        robin::connection::establish($config.clone(), jobs::lookup_job)
+        robin::connection::establish($config.clone(), __robin_lookup_job)
     )
 }
 
 #[macro_export]
 macro_rules! robin_boot_worker {
     ($config:expr) => (
-        robin::worker::boot(&$config.clone(), jobs::lookup_job);
+        robin::worker::boot(&$config.clone(), __robin_lookup_job);
     )
 }

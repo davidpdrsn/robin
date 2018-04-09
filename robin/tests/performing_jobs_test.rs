@@ -17,13 +17,13 @@ fn enqueuing_and_performing_jobs() {
 
     t.setup(&args);
 
-    let client = t.spawn_client(move |con| Jobs::VerifyableJob.perform_later(&args, &con).unwrap());
+    let client = t.spawn_client(move |con| VerifyableJob::perform_later(&args, &con).unwrap());
     let worker = t.spawn_worker();
 
     client.join().unwrap();
     worker.join().unwrap();
 
-    Jobs::assert_verifiable_job_performed_with(&args);
+    assert_verifiable_job_performed_with(&args);
 
     t.teardown(&args);
 }
@@ -38,11 +38,11 @@ fn perform_now_test() {
 
     t.setup(&args);
 
-    let client = t.spawn_client(move |con| Jobs::VerifyableJob.perform_now(&args, &con).unwrap());
+    let client = t.spawn_client(move |con| VerifyableJob::perform_now(&args, &con).unwrap());
 
     client.join().unwrap();
 
-    Jobs::assert_verifiable_job_performed_with(&args);
+    assert_verifiable_job_performed_with(&args);
 
     t.teardown(&args);
 }
@@ -66,11 +66,9 @@ fn running_multiple_jobs() {
     t.setup(&args_three);
 
     let client = t.spawn_client(move |con| {
-        Jobs::VerifyableJob.perform_later(&args_one, &con).unwrap();
-        Jobs::VerifyableJob.perform_later(&args_two, &con).unwrap();
-        Jobs::VerifyableJob
-            .perform_later(&args_three, &con)
-            .unwrap();
+        VerifyableJob::perform_later(&args_one, &con).unwrap();
+        VerifyableJob::perform_later(&args_two, &con).unwrap();
+        VerifyableJob::perform_later(&args_three, &con).unwrap();
     });
 
     let worker = t.spawn_worker();
@@ -78,9 +76,9 @@ fn running_multiple_jobs() {
     client.join().unwrap();
     worker.join().unwrap();
 
-    Jobs::assert_verifiable_job_performed_with(&args_one);
-    Jobs::assert_verifiable_job_performed_with(&args_two);
-    Jobs::assert_verifiable_job_performed_with(&args_three);
+    assert_verifiable_job_performed_with(&args_one);
+    assert_verifiable_job_performed_with(&args_two);
+    assert_verifiable_job_performed_with(&args_three);
 
     t.teardown(&args_one);
     t.teardown(&args_two);
@@ -97,9 +95,7 @@ fn job_fails_then_gets_retried_and_passes() {
     t.setup(&args);
 
     let client = t.spawn_client(move |con| {
-        Jobs::PassSecondTime
-            .perform_later(&args, &con)
-            .expect("Failed to enqueue job");
+        PassSecondTime::perform_later(&args, &con).expect("Failed to enqueue job");
     });
 
     let worker = t.spawn_worker();
@@ -122,9 +118,7 @@ fn job_doesnt_get_retried_forever() {
     t.setup(&args);
 
     let client = t.spawn_client(move |con| {
-        Jobs::FailForever
-            .perform_later(&args, &con)
-            .expect("Failed to enqueue job");
+        FailForever::perform_later(&args, &con).expect("Failed to enqueue job");
     });
 
     let worker = t.spawn_worker();
@@ -149,7 +143,7 @@ fn jobs_with_unit_as_args() {
         }
     }
 
-    let con = establish(Config::default(), jobs::lookup_job).expect("Failed to connect");
+    let con = establish(Config::default(), __robin_lookup_job).expect("Failed to connect");
 
     let result = JobWithoutArgs::perform_now(&(), &con);
 
