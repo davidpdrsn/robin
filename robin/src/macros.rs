@@ -1,7 +1,7 @@
 #[macro_export]
 macro_rules! jobs {
     (
-        $($id:ident,)*
+        $($id:ident($arg_type:ty),)*
     ) => {
         $(
             pub struct $id;
@@ -21,8 +21,8 @@ macro_rules! jobs {
             impl $id {
                 #[allow(dead_code)]
                 #[inline]
-                pub fn perform_now<A: Serialize>(
-                    args: A,
+                pub fn perform_now(
+                    args: &$arg_type,
                     con: &WorkerConnection,
                 ) -> RobinResult<()> {
                     $id.perform_now(args, con)
@@ -30,8 +30,8 @@ macro_rules! jobs {
 
                 #[allow(dead_code)]
                 #[inline]
-                pub fn perform_later<A: Serialize>(
-                    args: A,
+                pub fn perform_later(
+                    args: &$arg_type,
                     con: &WorkerConnection,
                 ) -> RobinResult<()> {
                     $id.perform_later(args, con)

@@ -13,8 +13,8 @@
 //! ## Getting started
 //!
 //! The standard way to use Robin is through the `jobs!` macro. It takes a comma separated list of
-//! job names, and generates all the boilerplate for you. Just you have to define a static method
-//! named `perform` on each of your jobs.
+//! job names with the argument type, and generates all the boilerplate for you. Just you have to
+//! define a static method named `perform` on each of your jobs.
 //!
 //! Here is a full example:
 //!
@@ -32,7 +32,7 @@
 //! use robin::prelude::*;
 //!
 //! jobs! {
-//!     MyJob,
+//!     MyJob(JobArgs),
 //! }
 //!
 //! impl MyJob {
@@ -120,8 +120,10 @@ pub mod config;
 /// # `jobs!`
 ///
 /// Takes a comma separate list of struct names. Each struct will become a job that you can call
-/// `perform_now` or `perform_later` on. You just have to implement a static method named `perform`
-/// on each struct that does the actual work.
+/// `perform_now` or `perform_later` on. The type in the parenthesis is the argument type your job
+/// expects. Make sure that type implements `serde::Serialize` and `serde::Deserialize`.
+/// You also have to implement a static method named `perform` on each struct that does the actual
+/// work.
 ///
 /// ## Example
 ///
@@ -135,7 +137,7 @@ pub mod config;
 ///
 /// # fn main() {
 /// jobs! {
-///     SendPushNotification,
+///     SendPushNotification(SendPushNotificationArgs),
 /// }
 ///
 /// impl SendPushNotification {
@@ -159,6 +161,53 @@ pub mod config;
 /// # }
 /// ```
 ///
+/// If you call `perform_later` or `perform_now` with an argument of the wrong type, you'll get a type error:
+///
+/// ```compile_fail
+/// # #[macro_use]
+/// # extern crate robin;
+/// # #[macro_use]
+/// #
+/// # extern crate serde_derive;
+/// #
+/// # use robin::prelude::*;
+/// # use std::error::Error;
+/// #
+/// # fn main() { try_main().unwrap() }
+/// #
+/// # fn try_main() -> Result<(), Box<Error>> {
+/// # jobs! {
+/// #     SendPushNotification(SendPushNotificationArgs),
+/// # }
+/// #
+/// # impl SendPushNotification {
+/// #     fn perform(args: SendPushNotificationArgs, _con: &WorkerConnection) -> JobResult {
+/// #         Ok(())
+/// #     }
+/// # }
+/// #
+/// # #[derive(Serialize, Deserialize, Debug)]
+/// # pub struct SendPushNotificationArgs {
+/// #     device_id: String,
+/// #     platform: DevicePlatform,
+/// # }
+/// #
+/// # #[derive(Serialize, Deserialize, Debug)]
+/// # pub enum DevicePlatform {
+/// #     Ios,
+/// #     Android,
+/// # }
+/// # let config = Config::default();
+/// # let con = robin_establish_connection!(config)?;
+/// #
+/// SendPushNotification::perform_later(&(), &con)?;
+/// #
+/// # Ok(())
+/// # }
+/// ```
+///
+/// **Note** that is only the case when you call `YourJob::perform_(later|now)` **not** when you call `YourJob.perform_(later|now)`. So you always want to call the `::` version.
+///
 /// # `robin_establish_connection!`
 ///
 /// Creates a new connection used to enqueued jobs, using the given config.
@@ -177,7 +226,7 @@ pub mod config;
 /// # fn main() { try_main().unwrap() }
 /// # fn try_main() -> Result<(), Box<Error>> {
 /// # jobs! {
-/// #     SendPushNotification,
+/// #     SendPushNotification(SendPushNotificationArgs),
 /// # }
 /// #
 /// # impl SendPushNotification {
@@ -226,7 +275,7 @@ pub mod config;
 ///
 /// # fn main() {
 /// # jobs! {
-/// #     MyJob,
+/// #     MyJob(()),
 /// # }
 /// # impl MyJob {
 /// #     fn perform(args: (), _con: &WorkerConnection) -> JobResult {

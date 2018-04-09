@@ -57,9 +57,9 @@ pub trait WithTempFile {
 }
 
 jobs! {
-    VerifyableJob,
-    PassSecondTime,
-    FailForever,
+    VerifyableJob(VerifyableJobArgs),
+    PassSecondTime(PassSecondTimeArgs),
+    FailForever(FailForeverArgs),
 }
 
 pub fn assert_verifiable_job_performed_with(args: &VerifyableJobArgs) {

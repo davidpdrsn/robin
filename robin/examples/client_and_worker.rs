@@ -35,7 +35,7 @@ fn client(config: Config) {
 }
 
 jobs! {
-    MyJob,
+    MyJob(JobArgs),
 }
 
 impl MyJob {

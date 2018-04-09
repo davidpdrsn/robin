@@ -12,7 +12,8 @@ N/A
 
 ### Changed
 
-N/A
+- Remove `#[derive(Job)]`. Turns out `job!` was able to generate all the cod we needed.
+- Change `jobs!` to also require the argument type that your job expects. This mean you'll no longer be able to enqueue your jobs with the wrong type of arguments.
 
 ### Deprecated
 

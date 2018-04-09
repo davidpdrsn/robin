@@ -134,7 +134,7 @@ fn jobs_with_unit_as_args() {
     use robin::error::Error;
 
     jobs! {
-        JobWithoutArgs,
+        JobWithoutArgs(()),
     }
 
     impl JobWithoutArgs {
