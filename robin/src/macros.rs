@@ -56,7 +56,6 @@
 /// # #[macro_use]
 /// # extern crate robin;
 /// # #[macro_use]
-/// #
 /// # extern crate serde_derive;
 /// #
 /// # use robin::prelude::*;
@@ -95,7 +94,111 @@
 /// # }
 /// ```
 ///
-/// **Note** that is only the case when you call `YourJob::perform_(later|now)` **not** when you call `YourJob.perform_(later|now)`. So you always want to call the `::` version.
+/// **Note** that is only the case when you call `YourJob::perform_(later|now)` **not** when you
+/// call `YourJob.perform_(later|now)`. So you always want to call the `::` version. See the
+/// [Expansion](macro.jobs.html#expansion) section below for an example of why that is.
+///
+/// ## Expansion
+///
+/// Here is what the [`jobs!`](macro.jobs.html) macro expands into.
+///
+/// This:
+///
+/// ```rust
+/// # #[macro_use]
+/// # extern crate robin;
+/// # #[macro_use]
+/// # extern crate serde_derive;
+/// #
+/// # use robin::prelude::*;
+/// #
+/// jobs! {
+///     SendPushNotification(SendPushNotificationArgs),
+/// }
+/// #
+/// # impl SendPushNotification {
+/// #     fn perform(args: SendPushNotificationArgs, _con: &WorkerConnection) -> JobResult {
+/// #         Ok(())
+/// #     }
+/// # }
+/// #
+/// # #[derive(Serialize, Deserialize, Debug)]
+/// # pub struct SendPushNotificationArgs {
+/// #     device_id: String,
+/// # }
+/// #
+/// # fn main() {}
+/// ```
+///
+/// Will expand into this.
+///
+/// ```rust
+/// # #[macro_use]
+/// # extern crate robin;
+/// # #[macro_use]
+/// # extern crate serde_derive;
+/// #
+/// # use robin::prelude::*;
+/// #
+/// pub struct SendPushNotification;
+///
+/// impl Job for SendPushNotification {
+///     #[inline]
+///     fn name(&self) -> JobName {
+///         JobName::from("SendPushNotification")
+///     }
+///
+///     #[inline]
+///     fn perform(&self, args: &Args, con: &WorkerConnection) -> JobResult {
+///         SendPushNotification::perform(args.deserialize()?, con)
+///     }
+/// }
+///
+/// impl SendPushNotification {
+///     #[allow(dead_code)]
+///     #[inline]
+///     pub fn perform_now(
+///         args: &SendPushNotificationArgs,
+///         con: &WorkerConnection,
+///     ) -> RobinResult<()> {
+///         SendPushNotification.perform_now(args, con)
+///     }
+///
+///     #[allow(dead_code)]
+///     #[inline]
+///     pub fn perform_later(
+///         args: &SendPushNotificationArgs,
+///         con: &WorkerConnection,
+///     ) -> RobinResult<()> {
+///         SendPushNotification.perform_later(args, con)
+///     }
+/// }
+///
+/// pub fn __robin_lookup_job(name: &JobName) -> Option<Box<Job + Send>> {
+///     match name.0.as_ref() {
+///         "SendPushNotification" => Some(Box::new(SendPushNotification)),
+///         _ => None,
+///     }
+/// }
+/// #
+/// # impl SendPushNotification {
+/// #     fn perform(args: SendPushNotificationArgs, _con: &WorkerConnection) -> JobResult {
+/// #         Ok(())
+/// #     }
+/// # }
+/// #
+/// # #[derive(Serialize, Deserialize, Debug)]
+/// # pub struct SendPushNotificationArgs {
+/// #     device_id: String,
+/// # }
+/// #
+/// # fn main() {}
+/// ```
+///
+/// `__robin_lookup_job` is a special function that implements
+/// [`LookupJob`](connection/trait.LookupJob.html).
+/// [`robin_establish_connection!`](macro.robin_establish_connection.html) and
+/// [`robin_boot_worker!`](macro.robin_boot_worker.html) knows this name and will call it for you.
 #[macro_export]
 macro_rules! jobs {
     (
@@ -149,6 +252,8 @@ macro_rules! jobs {
 }
 
 /// Creates a new connection used to enqueued jobs, using the given config.
+///
+/// This macro requires that you're also using [`jobs!`](macro.jobs.html) to define your jobs.
 ///
 /// ## Example
 ///
@@ -205,6 +310,8 @@ macro_rules! robin_establish_connection {
 }
 
 /// Boots the worker which performs the jobs.
+///
+/// This macro requires that you're also using [`jobs!`](macro.jobs.html) to define your jobs.
 ///
 /// ## Example
 /// ```rust
