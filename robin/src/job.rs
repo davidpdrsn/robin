@@ -2,7 +2,7 @@ extern crate serde_json;
 
 use serde::{Deserialize, Serialize};
 use connection::WorkerConnection;
-use connection::queue_adapters::{QueueIdentifier, RetryCount};
+use queue_adapters::{QueueIdentifier, RetryCount};
 use error::{Error, RobinResult};
 use std;
 
@@ -42,6 +42,9 @@ impl Args {
 }
 
 /// The trait that defines what a particular job should does.
+///
+/// **NOTE:** You normally wouldn't need to implement this. The [`jobs!`](../macro.jobs.html) macro
+/// will implement it for you.
 pub trait Job {
     /// The name of the job. Required to put the job into Redis.
     fn name(&self) -> JobName;
@@ -51,7 +54,7 @@ pub trait Job {
 }
 
 /// Trait for either performing immediately, or more commonly, later.
-/// This trait is automatically implemented for types that implement `Job`
+/// This trait is automatically implemented for types that implement [`Job`](trait.Job.html)
 /// so you shouldn't ever need to implement this manually.
 pub trait PerformJob {
     /// Perform the job right now without blocking.

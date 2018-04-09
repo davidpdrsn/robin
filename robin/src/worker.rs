@@ -1,6 +1,6 @@
 use connection::*;
 use job::*;
-use connection::queue_adapters::{DequeueTimeout, NoJobDequeued, QueueIdentifier, RetryCount};
+use queue_adapters::{DequeueTimeout, NoJobDequeued, QueueIdentifier, RetryCount};
 use std::thread::{self, JoinHandle};
 use std::time::Duration;
 use std::sync::Arc;
@@ -11,16 +11,15 @@ use serde_json;
 /// Boot the worker.
 ///
 /// **NOTE:** You normally wouldn't need to call this. Instead use the
-/// `robin_boot_worker!` macro in the `macros` module.
+/// [`robin_boot_worker!`](../macro.robin_boot_worker.html) macro in the `macros` module.
 ///
-/// This will spawn the numbers of threads set by `config.worker_count`. Each thread
+/// This will spawn the numbers of threads set by [`config.worker_count`](../config/struct.Config.html#structfield.worker_count). Each thread
 /// will dequeue a job, perform it, and repeat.
 ///
 /// Make sure the config you're using here is the same config you use to establish the connection
-/// in `robin_establish_connection!`.
+/// in [`robin_establish_connection!`](../macro.robin_establish_connection.html).
 ///
 /// This will also print some metrics every few seconds. The output look like "Robin worker metric: Jobs per second 11000".
-/// ```
 pub fn boot<T>(config: &Config, lookup_job: T)
 where
     T: 'static,

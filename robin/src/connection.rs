@@ -1,11 +1,8 @@
-/// Contains lower level types for enqueueing and dequeueing jobs.
-pub mod queue_adapters;
-
 use config::Config;
 use error::*;
 use job::*;
-use self::queue_adapters::{DequeueTimeout, EnqueuedJob, NoJobDequeued, QueueIdentifier,
-                           RetryCount, redis_queue::RedisQueue};
+use queue_adapters::{DequeueTimeout, EnqueuedJob, NoJobDequeued, QueueIdentifier, RetryCount,
+                     redis_queue::RedisQueue};
 use std::fmt;
 
 /// The connection to Redis. Required to enqueue and dequeue jobs.
@@ -29,10 +26,7 @@ impl WorkerConnection {
         &self.config
     }
 
-    /// Put a job into the queue.
-    ///
-    /// This method will enqueue the job regardless of what the `retry_count` is.
-    /// Not reenqueueing jobs that failed too much is handled at another level.
+    #[doc(hidden)]
     pub fn enqueue_to(
         &self,
         iden: QueueIdentifier,
@@ -55,12 +49,12 @@ impl WorkerConnection {
         }
     }
 
-    /// Put the job into the retry queue.
+    #[doc(hidden)]
     pub fn retry(&self, name: JobName, args: &Args, retry_count: RetryCount) -> RobinResult<()> {
         self.enqueue_to(QueueIdentifier::Retry, name, args, retry_count)
     }
 
-    /// Pull the first job out of the queue.
+    #[doc(hidden)]
     pub fn dequeue_from<'a>(
         &'a self,
         iden: QueueIdentifier,
@@ -114,13 +108,13 @@ impl WorkerConnection {
 /// Create a new connection.
 ///
 /// **NOTE:** You normally wouldn't need to call this. Instead use the
-/// `robin_establish_connection!` macro in the `macros` module.
+/// [`robin_establish_connection!`](../macro.robin_establish_connection.html) macro in the `macros` module.
 ///
 /// The lookup function is necessary for parsing the `String` we get from Redis
 /// into a job type.
 ///
 /// Make sure the config you're using here is the same config you use to boot the worker in
-/// `worker::boot`.
+/// [`robin_boot_worker!`](../macro.robin_boot_worker.html).
 pub fn establish<T: 'static + LookupJob>(
     config: Config,
     lookup_job: T,

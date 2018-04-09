@@ -3,7 +3,7 @@ use num_cpus;
 
 /// Configuration options used throughout Robin.
 ///
-/// The normal way to construct a `Config` is through the `Default` implementation.
+/// The normal way to construct a `Config` is through its [`Default`](https://doc.rust-lang.org/std/default/trait.Default.html) implementation.
 /// Afterwards you can tweak the values you need.
 ///
 /// ```rust

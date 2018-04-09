@@ -12,7 +12,7 @@
 //!
 //! ## Getting started
 //!
-//! The standard way to use Robin is through the `jobs!` macro. It takes a comma separated list of
+//! The standard way to use Robin is through the [`jobs!`](macro.jobs.html) macro. It takes a comma separated list of
 //! job names with the argument type, and generates all the boilerplate for you. Just you have to
 //! define a static method named `perform` on each of your jobs.
 //!
@@ -77,7 +77,7 @@
 //! Normally the code that enqueues jobs and the code the boots the worker would be in separate
 //! binaries.
 //!
-//! For more details see the `robin::macros` module documentation.
+//! For more details see the documentation for [each of the macros](#macros).
 //!
 //! ## The prelude
 //!
@@ -107,6 +107,8 @@ pub mod connection;
 pub mod error;
 
 /// Contains traits for enqueueing and performing jobs.
+///
+/// **NOTE:** If you're using the [`jobs!`](../macro.jobs.html) macro you normally only need to know about the [`JobResult`](type.JobResult.html) type from this module. Everything else will be handled for you by [`jobs!`](../macro.jobs.html).
 pub mod job;
 
 /// Contains functions for booting and running workers which perform jobs.
@@ -115,198 +117,18 @@ pub mod worker;
 /// Contains the config type used to configure Robin.
 pub mod config;
 
-/// Contains the macros exported by Robin.
-///
-/// # `jobs!`
-///
-/// Takes a comma separate list of struct names. Each struct will become a job that you can call
-/// `perform_now` or `perform_later` on. The type in the parenthesis is the argument type your job
-/// expects. Make sure that type implements `serde::Serialize` and `serde::Deserialize`.
-/// You also have to implement a static method named `perform` on each struct that does the actual
-/// work.
-///
-/// ## Example
-///
-/// ```rust
-/// #[macro_use]
-/// extern crate robin;
-/// #[macro_use]
-/// extern crate serde_derive;
-/// #
-/// use robin::prelude::*;
-///
-/// # fn main() {
-/// jobs! {
-///     SendPushNotification(SendPushNotificationArgs),
-/// }
-///
-/// impl SendPushNotification {
-///     fn perform(args: SendPushNotificationArgs, _con: &WorkerConnection) -> JobResult {
-///         // Code for actually sending push notifications
-///         Ok(())
-///     }
-/// }
-///
-/// #[derive(Serialize, Deserialize, Debug)]
-/// pub struct SendPushNotificationArgs {
-///     device_id: String,
-///     platform: DevicePlatform,
-/// }
-///
-/// #[derive(Serialize, Deserialize, Debug)]
-/// pub enum DevicePlatform {
-///     Ios,
-///     Android,
-/// }
-/// # }
-/// ```
-///
-/// If you call `perform_later` or `perform_now` with an argument of the wrong type, you'll get a type error:
-///
-/// ```compile_fail
-/// # #[macro_use]
-/// # extern crate robin;
-/// # #[macro_use]
-/// #
-/// # extern crate serde_derive;
-/// #
-/// # use robin::prelude::*;
-/// # use std::error::Error;
-/// #
-/// # fn main() { try_main().unwrap() }
-/// #
-/// # fn try_main() -> Result<(), Box<Error>> {
-/// # jobs! {
-/// #     SendPushNotification(SendPushNotificationArgs),
-/// # }
-/// #
-/// # impl SendPushNotification {
-/// #     fn perform(args: SendPushNotificationArgs, _con: &WorkerConnection) -> JobResult {
-/// #         Ok(())
-/// #     }
-/// # }
-/// #
-/// # #[derive(Serialize, Deserialize, Debug)]
-/// # pub struct SendPushNotificationArgs {
-/// #     device_id: String,
-/// #     platform: DevicePlatform,
-/// # }
-/// #
-/// # #[derive(Serialize, Deserialize, Debug)]
-/// # pub enum DevicePlatform {
-/// #     Ios,
-/// #     Android,
-/// # }
-/// # let config = Config::default();
-/// # let con = robin_establish_connection!(config)?;
-/// #
-/// SendPushNotification::perform_later(&(), &con)?;
-/// #
-/// # Ok(())
-/// # }
-/// ```
-///
-/// **Note** that is only the case when you call `YourJob::perform_(later|now)` **not** when you call `YourJob.perform_(later|now)`. So you always want to call the `::` version.
-///
-/// # `robin_establish_connection!`
-///
-/// Creates a new connection used to enqueued jobs, using the given config.
-///
-/// ## Example
-///
-/// ```rust
-/// #[macro_use]
-/// extern crate robin;
-/// #[macro_use]
-/// extern crate serde_derive;
-///
-/// use robin::prelude::*;
-///
-/// # use std::error::Error;
-/// # fn main() { try_main().unwrap() }
-/// # fn try_main() -> Result<(), Box<Error>> {
-/// # jobs! {
-/// #     SendPushNotification(SendPushNotificationArgs),
-/// # }
-/// #
-/// # impl SendPushNotification {
-/// #     fn perform(args: SendPushNotificationArgs, _con: &WorkerConnection) -> JobResult {
-/// #         Ok(())
-/// #     }
-/// # }
-/// #
-/// # #[derive(Serialize, Deserialize, Debug)]
-/// # pub struct SendPushNotificationArgs {
-/// #     device_id: String,
-/// #     platform: DevicePlatform,
-/// # }
-/// #
-/// # #[derive(Serialize, Deserialize, Debug)]
-/// # pub enum DevicePlatform {
-/// #     Ios,
-/// #     Android,
-/// # }
-/// let config = Config::default();
-///
-/// let con = robin_establish_connection!(config)?;
-///
-/// let args = SendPushNotificationArgs {
-///     device_id: "123".to_string(),
-///     platform: DevicePlatform::Android,
-/// };
-///
-/// SendPushNotification::perform_later(&args, &con)?;
-/// # Ok(())
-/// # }
-/// ```
-///
-/// # `robin_boot_worker!`
-///
-/// Boots the worker which performs the jobs.
-///
-/// ## Example
-/// ```rust
-/// #[macro_use]
-/// extern crate robin;
-/// #[macro_use]
-/// extern crate serde_derive;
-///
-/// use robin::prelude::*;
-///
-/// # fn main() {
-/// # jobs! {
-/// #     MyJob(()),
-/// # }
-/// # impl MyJob {
-/// #     fn perform(args: (), _con: &WorkerConnection) -> JobResult {
-/// #         Ok(())
-/// #     }
-/// # }
-/// let config = Config::default();
-/// # let mut config = Config::default();
-/// # config.timeout = 1;
-/// # config.redis_namespace = "doc_tests_for_boot_worker_macro".to_string();
-/// # config.repeat_on_timeout = false;
-/// # config.retry_count_limit = 1;
-/// # config.worker_count = 1;
-///
-/// robin_boot_worker!(config);
-/// # }
-/// ```
 pub mod macros;
 
 mod ticker;
+mod queue_adapters;
 
 pub mod prelude {
     //! Reexports the most commonly used types and traits from the other modules.
     //! As long as you're doing standard things this is the only `use` you'll need.
 
-    pub use serde::Serialize;
     pub use job::{Args, Job, JobName, JobResult, PerformJob};
     pub use error::RobinResult;
     pub use connection::{establish, LookupJob, WorkerConnection};
     pub use worker::boot;
     pub use config::Config;
-    pub use robin_derives::*;
-    pub use macros::*;
 }

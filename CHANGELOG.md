@@ -14,6 +14,8 @@ N/A
 
 - Remove `#[derive(Job)]`. Turns out `job!` was able to generate all the cod we needed.
 - Change `jobs!` to also require the argument type that your job expects. This mean you'll no longer be able to enqueue your jobs with the wrong type of arguments.
+- Remove the export of `serde::Serialize` from `prelude` since it is no longer necessary due to [#50](https://github.com/davidpdrsn/robin/pull/50).
+- Make the `connections::queue_adapters` module private. There is no reason for users to depend on this.
 
 ### Deprecated
 
