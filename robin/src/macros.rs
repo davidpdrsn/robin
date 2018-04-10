@@ -202,7 +202,15 @@
 #[macro_export]
 macro_rules! jobs {
     (
-        $($id:ident($arg_type:ty),)*
+        $id:ident($arg_type:ty),
+    ) => {
+        jobs! {
+            $id($arg_type)
+        }
+    };
+
+    (
+        $($id:ident($arg_type:ty)),*
     ) => {
         $(
             pub struct $id;
@@ -248,7 +256,7 @@ macro_rules! jobs {
                 _ => None,
             }
         }
-    }
+    };
 }
 
 /// Creates a new connection used to enqueued jobs, using the given config.
@@ -335,11 +343,12 @@ macro_rules! robin_establish_connection {
 /// # let mut config = Config::default();
 /// # config.timeout = 1;
 /// # config.redis_namespace = "doc_tests_for_boot_worker_macro".to_string();
-/// # config.repeat_on_timeout = false;
 /// # config.retry_count_limit = 1;
 /// # config.worker_count = 1;
 ///
+/// # if false {
 /// robin_boot_worker!(config);
+/// # }
 /// # }
 /// ```
 #[macro_export]

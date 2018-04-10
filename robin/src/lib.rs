@@ -37,21 +37,20 @@
 //!
 //! impl MyJob {
 //!     fn perform(args: JobArgs, _con: &WorkerConnection) -> JobResult {
-//!         println!("Job performed with {:?}", args);
+//!         println!("Job performed with {:?}", args.value);
 //!         Ok(())
 //!     }
 //! }
 //!
 //! #[derive(Serialize, Deserialize, Debug)]
-//! pub struct JobArgs;
+//! pub struct JobArgs {
+//!     value: String
+//! }
 //!
 //! let config = Config::default();
 //! # let mut config = Config::default();
-//! # config.timeout = 1;
 //! # config.redis_namespace = "doc_tests_for_crate".to_string();
-//! # config.repeat_on_timeout = false;
-//! # config.retry_count_limit = 1;
-//! # config.worker_count = 1;
+//! # config.timeout = 1;
 //!
 //! let con = robin_establish_connection!(config)?;
 //! # con.delete_all();
@@ -60,13 +59,17 @@
 //! assert_eq!(con.retry_queue_size()?, 0);
 //!
 //! for i in 0..5 {
-//!     MyJob::perform_later(&JobArgs, &con)?;
+//!     MyJob::perform_later(&JobArgs { value: "foo".to_string() }, &con)?;
 //! }
 //!
 //! assert_eq!(con.main_queue_size()?, 5);
 //! assert_eq!(con.retry_queue_size()?, 0);
 //!
+//! # if true {
+//! # robin::worker::spawn_workers(&config.clone(), __robin_lookup_job).perform_all_jobs_and_die();
+//! # } else {
 //! robin_boot_worker!(config);
+//! # }
 //!
 //! assert_eq!(con.main_queue_size()?, 0);
 //! assert_eq!(con.retry_queue_size()?, 0);
@@ -102,6 +105,11 @@ extern crate serde_json;
 #[macro_use]
 extern crate typesafe_derive_builder;
 
+#[doc(hidden)]
+#[macro_use]
+#[cfg(not(release))]
+mod internal_macros;
+
 /// Contains the connection type and functions for establishing connections.
 pub mod connection;
 
@@ -124,11 +132,6 @@ pub mod macros;
 mod ticker;
 mod queue_adapters;
 
-#[doc(hidden)]
-#[macro_use]
-#[cfg(not(release))]
-mod internal_macros;
-
 pub mod prelude {
     //! Reexports the most commonly used types and traits from the other modules.
     //! As long as you're doing standard things this is the only `use` you'll need.
@@ -136,6 +139,6 @@ pub mod prelude {
     pub use job::{Args, Job, JobName, JobResult, PerformJob};
     pub use error::RobinResult;
     pub use connection::{establish, LookupJob, WorkerConnection};
-    pub use worker::boot;
+    pub use worker::{boot, spawn_workers};
     pub use config::Config;
 }

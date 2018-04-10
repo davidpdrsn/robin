@@ -58,3 +58,42 @@ macro_rules! p {
         )*
     }
 }
+
+/// A macro for verifying that a type implements a certain trait. Normally used to verify that
+/// something is either `Send` or `Sync`.
+///
+/// ```
+/// # #[macro_use]
+/// # extern crate robin;
+/// #
+/// # fn main() {
+/// struct Foo;
+///
+/// test_type_impls!(foo_impls_send, Foo, Send);
+/// test_type_impls!(foo_impls_sync, Foo, Sync);
+/// # }
+/// ```
+#[doc(hidden)]
+#[macro_export]
+macro_rules! test_type_impls {
+    ( $name:ident, $type:ty, $trait:ty ) => {
+        #[allow(warnings)]
+        fn $name() {
+            let x: $type = unimplemented!();
+            let _: &$trait = &x;
+        }
+    }
+}
+
+#[doc(hidden)]
+#[macro_export]
+macro_rules! robin_test {
+    ( $name:ident, $body:expr ) => {
+        #[test]
+        fn $name() {
+            setup();
+            $body();
+            teardown();
+        }
+    }
+}

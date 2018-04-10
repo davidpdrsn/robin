@@ -1,9 +1,0 @@
-#!/bin/bash
-set -e
-
-rustup default stable
-
-mkdir -p tests/tmp
-
-cargo test
-cargo build

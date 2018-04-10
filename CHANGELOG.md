@@ -8,7 +8,7 @@ for Rust libraries in [RFC #1105](https://github.com/rust-lang/rfcs/blob/master/
 
 ### Added
 
-N/A
+- Added `worker::spawn_workers` which is useful during testing. See the docs for more info.
 
 ### Changed
 
@@ -17,6 +17,7 @@ N/A
 - Remove the export of `serde::Serialize` from `prelude` since it is no longer necessary due to [#50](https://github.com/davidpdrsn/robin/pull/50).
 - Make the `connections::queue_adapters` module private. There is no reason for users to depend on this.
 - We now use the [log crate](https://crates.io/crates/log) for all logging.
+- We now spawn a dedicated worker that only operates on the retry queue. That means if `config.worker_count` is 10 you'll actually get 11 workers.
 
 ### Deprecated
 

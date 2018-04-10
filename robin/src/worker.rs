@@ -1,206 +1,271 @@
+use config::Config;
 use connection::*;
 use job::*;
 use queue_adapters::{DequeueTimeout, NoJobDequeued, QueueIdentifier, RetryCount};
-use std::thread::{self, JoinHandle};
-use std::time::Duration;
-use std::sync::Arc;
-use config::Config;
-use ticker::*;
 use serde_json;
+use std::sync::mpsc::*;
+use std::thread::{self, JoinHandle};
 
 /// Boot the worker.
 ///
 /// **NOTE:** You normally wouldn't need to call this. Instead use the
 /// [`robin_boot_worker!`](../macro.robin_boot_worker.html) macro in the `macros` module.
 ///
-/// This will spawn the numbers of threads set by [`config.worker_count`](../config/struct.Config.html#structfield.worker_count). Each thread
-/// will dequeue a job, perform it, and repeat.
+/// This will spawn the numbers of workers set by
+/// [`config.worker_count`](../config/struct.Config.html#structfield.worker_count) plus one for
+/// handling retries.
 ///
 /// Make sure the config you're using here is the same config you use to establish the connection
 /// in [`robin_establish_connection!`](../macro.robin_establish_connection.html).
-///
-/// This will also print some metrics every few seconds. The output look like "Robin worker metric: Jobs per second 11000".
 pub fn boot<T>(config: &Config, lookup_job: T)
 where
-    T: 'static,
-    T: LookupJob,
-    T: Send + Clone,
+    T: 'static + LookupJob + Send + Clone,
 {
-    let worker_count = config.worker_count;
-
-    let mut handles = vec![];
-
-    let ticker = Arc::new(Ticker::new());
-    spawn_metrics_printer(Arc::clone(&ticker));
-
-    for i in 0..worker_count {
-        let worker_number = WorkerNumber {
-            number: i + 1,
-            total_worker_count: worker_count,
-        };
-
-        debug!(
-            "Robin worker {}/{} started",
-            worker_number.number, worker_count
-        );
-
-        handles.push(spawn_worker(
-            worker_number,
-            config.clone(),
-            lookup_job.clone(),
-            Arc::clone(&ticker),
-        ));
-    }
-
-    for handle in handles {
-        handle.join().expect("failed to end worker thread");
-    }
+    spawn_workers(config, lookup_job).job_loop()
 }
 
-fn spawn_metrics_printer(ticker: Arc<Ticker>) {
-    thread::spawn(move || loop {
-        thread::sleep(Duration::from_secs(5));
-        let jobs_per_second = ticker.ticks_per_second();
-        debug!("Robin worker metric: Jobs per second {}", jobs_per_second);
+/// Spawn the workers and return the [`WorkerManager`](struct.WorkerManager) which enables
+/// communication with the workers.
+///
+/// You should only need this method during tests.
+///
+/// If you don't need the `WorkerManager` but just want to keep performing jobs in an infinite
+/// loop, use [`boot`](fn.boot.html) instead.
+pub fn spawn_workers<T>(config: &Config, lookup_job: T) -> WorkerManager
+where
+    T: 'static + LookupJob + Send + Clone,
+{
+    let mut channel: MultiplexChannel<WorkerMessage> = MultiplexChannel::new();
 
-        if ticker.elapsed() > Duration::from_secs(10) {
-            debug!("Resetting worker ticker");
-            ticker.reset();
-        }
-    });
+    let mut handles: Vec<JoinHandle<()>> = config
+        .worker_count
+        .times()
+        .map(|_| {
+            spawn_worker(
+                channel.new_receiver(),
+                &config,
+                &lookup_job,
+                QueueIdentifier::Main,
+            )
+        })
+        .collect();
+
+    handles.push(spawn_worker(
+        channel.new_receiver(),
+        &config,
+        &lookup_job,
+        QueueIdentifier::Retry,
+    ));
+
+    WorkerManager { handles, channel }
 }
 
 fn spawn_worker<T>(
-    worker_number: WorkerNumber,
-    config: Config,
-    lookup_job: T,
-    ticker: Arc<Ticker>,
+    receiver: Receiver<WorkerMessage>,
+    config: &Config,
+    lookup_job: &T,
+    queue_iden: QueueIdentifier,
 ) -> JoinHandle<()>
 where
-    T: 'static + LookupJob + Send,
+    T: 'static + LookupJob + Send + Clone,
 {
-    thread::spawn(move || {
-        let con = establish(config, lookup_job).expect("failed to establish connection");
-
-        loop {
-            let result = perform_job(
-                &con,
-                QueueIdentifier::Main,
-                worker_number,
-                Arc::clone(&ticker),
-            );
-
-            match result {
-                LoopControl::Break => break,
-                LoopControl::Continue => {}
-            }
-        }
-    })
+    let config = config.clone();
+    let lookup_job = lookup_job.clone();
+    thread::spawn(move || worker_loop(receiver, config, lookup_job, queue_iden))
 }
 
-fn perform_job(
-    con: &WorkerConnection,
-    iden: QueueIdentifier,
-    worker_number: WorkerNumber,
-    ticker: Arc<Ticker>,
-) -> LoopControl {
-    let dequeued = con.dequeue_from(iden, DequeueTimeout(con.config().timeout));
+/// Struct the allows you to communicate with the running workers.
+#[allow(missing_debug_implementations)]
+pub struct WorkerManager {
+    handles: Vec<JoinHandle<()>>,
+    channel: MultiplexChannel<WorkerMessage>,
+}
 
-    match dequeued {
-        Ok((job, args, retry_count)) => {
-            let prev_count = retry_count;
-            let retry_count = prev_count.increment();
+impl WorkerManager {
+    /// Kill the workers once there are no more jobs left to perform.
+    pub fn perform_all_jobs_and_die(self) {
+        self.channel.send(WorkerMessage::PerformJobsAndDie);
+        self.join_threads();
+    }
 
-            if retry_count.limit_reached(con.config()) {
-                debug!(
-                    "Not retrying {} anymore. Retry count was {:?}",
-                    job.name().0,
-                    prev_count,
-                );
+    /// Kill the workers once they've performed the job they're currently working on.
+    pub fn die(self) {
+        self.channel.send(WorkerMessage::Die);
+        self.join_threads();
+    }
 
-                if con.config().repeat_on_timeout {
-                    LoopControl::Continue
-                } else {
-                    LoopControl::Break
+    fn job_loop(self) {
+        self.join_threads()
+    }
+
+    fn join_threads(self) {
+        self.handles.into_iter().for_each(|h| h.join().unwrap());
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+enum WorkerMessage {
+    Die,
+    PerformJobsAndDie,
+}
+
+fn worker_loop<T>(
+    receiver: Receiver<WorkerMessage>,
+    config: Config,
+    lookup_job: T,
+    queue_iden: QueueIdentifier,
+) where
+    T: 'static + LookupJob,
+{
+    let con = establish(config, lookup_job).expect("failed to establish connection");
+    let mut received_perform_jobs_and_die = false;
+
+    loop {
+        let job = dequeue_job(&con, queue_iden);
+        let output = perform_job(job, &con);
+
+        match output {
+            PerformJobOutput::JobPerformed => {}
+            PerformJobOutput::JobRetried => {}
+            PerformJobOutput::NoJobPerformed(reason) => match reason {
+                NoJobPerformedReason::HitTimeout => if received_perform_jobs_and_die {
+                    break;
+                },
+                NoJobPerformedReason::RetryLimitReached => {
+                    debug!("retry limit reached");
                 }
-            } else {
-                match iden {
-                    QueueIdentifier::Main => debug!(
-                        "Performing {} on worker {}",
-                        job.name().0,
-                        worker_number.description()
-                    ),
-                    QueueIdentifier::Retry => debug!(
-                        "Retying {} on worker {}. Retry count is {:?}",
-                        job.name().0,
-                        worker_number.description(),
-                        retry_count
-                    ),
-                };
-
-                perform_or_retry(con, job, &args, retry_count, worker_number, ticker);
-
-                LoopControl::Continue
-            }
+            },
         }
 
-        Err(NoJobDequeued::BecauseTimeout) => match iden {
-            QueueIdentifier::Main => {
-                perform_job(con, QueueIdentifier::Retry, worker_number, ticker)
+        if let Ok(msg) = receiver.try_recv() {
+            match msg {
+                WorkerMessage::Die => break,
+                WorkerMessage::PerformJobsAndDie => received_perform_jobs_and_die = true,
             }
-            QueueIdentifier::Retry => {
-                if con.config().repeat_on_timeout {
-                    LoopControl::Continue
-                } else {
-                    LoopControl::Break
-                }
-            }
-        },
-
-        Err(NoJobDequeued::BecauseError(err)) => {
-            panic!(format!("Failed to dequeue job with error\n{:?}", err));
         }
     }
 }
 
-enum LoopControl {
-    Break,
-    Continue,
+type DequeuedJob = Result<(Box<Job + Send + 'static>, String, RetryCount), NoJobDequeued>;
+
+fn dequeue_job(con: &WorkerConnection, iden: QueueIdentifier) -> DequeuedJob {
+    con.dequeue_from(iden, DequeueTimeout(con.config().timeout))
+}
+
+#[derive(Debug)]
+enum PerformJobOutput {
+    JobPerformed,
+    JobRetried,
+    NoJobPerformed(NoJobPerformedReason),
+}
+
+#[derive(Debug)]
+enum NoJobPerformedReason {
+    HitTimeout,
+    RetryLimitReached,
+}
+
+fn perform_job(job: DequeuedJob, con: &WorkerConnection) -> PerformJobOutput {
+    match job {
+        Ok((job, args, retry_count)) => perform_or_retry(con, job, args, retry_count),
+
+        Err(NoJobDequeued::BecauseTimeout) => {
+            PerformJobOutput::NoJobPerformed(NoJobPerformedReason::HitTimeout)
+        }
+
+        Err(NoJobDequeued::BecauseError(err)) => {
+            panic!(format!("Failed to dequeue job with error\n{:?}", err))
+        }
+    }
 }
 
 fn perform_or_retry(
     con: &WorkerConnection,
     job: Box<Job + Send>,
-    args: &str,
+    args: String,
     retry_count: RetryCount,
-    worker_number: WorkerNumber,
-    ticker: Arc<Ticker>,
-) {
-    let args = serde_json::from_str(args).expect("todo");
-    let job_result = job.perform(&args, &con);
-    ticker.tick();
+) -> PerformJobOutput {
+    let retry_count = retry_count.increment();
 
-    match job_result {
-        Ok(()) => debug!(
-            "Performed {} on worker {}",
-            job.name().0,
-            worker_number.description()
-        ),
-        Err(_) => {
-            con.retry(job.name(), &args, retry_count)
-                .expect("Failed to enqueue job into retry queue");
+    if retry_count.limit_reached(con.config()) {
+        PerformJobOutput::NoJobPerformed(NoJobPerformedReason::RetryLimitReached)
+    } else {
+        // TODO: Handle this error
+        let args = serde_json::from_str(&args).expect("TODO");
+        let job_result = job.perform(&args, &con);
+
+        match job_result {
+            Ok(()) => PerformJobOutput::JobPerformed,
+            Err(_) => {
+                con.retry(job.name(), &args, retry_count)
+                    .expect("Failed to enqueue job into retry queue");
+                PerformJobOutput::JobRetried
+            }
         }
     }
 }
 
-#[derive(Copy, Clone)]
-struct WorkerNumber {
-    number: usize,
-    total_worker_count: usize,
+struct MultiplexChannel<T> {
+    senders: Vec<Sender<T>>,
 }
 
-impl WorkerNumber {
-    fn description(&self) -> String {
-        format!("{}/{}", self.number, self.total_worker_count)
+impl<T> MultiplexChannel<T>
+where
+    T: Send + Clone,
+{
+    fn new() -> Self {
+        MultiplexChannel { senders: vec![] }
+    }
+
+    fn new_receiver(&mut self) -> Receiver<T> {
+        let (send, recv) = channel();
+        self.senders.push(send);
+        recv
+    }
+
+    fn send(&self, t: T) -> Vec<Result<(), SendError<T>>> {
+        self.senders
+            .iter()
+            .map(|sender| sender.send(t.clone()))
+            .collect()
+    }
+}
+
+trait Times {
+    fn times(self) -> Box<Iterator<Item = Self>>;
+}
+
+impl Times for usize {
+    /// Repeat something `self` times. Inspired by Ruby `n.times { ... }`.
+    fn times(self) -> Box<Iterator<Item = Self>> {
+        Box::new((0..self).into_iter())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_times() {
+        let v = 3.times().map(|i| i).collect::<Vec<_>>();
+        assert_eq!(vec![0, 1, 2], v);
+    }
+
+    #[test]
+    fn test_multiplex_channel() {
+        let mut channel: MultiplexChannel<()> = MultiplexChannel::new();
+
+        let receivers = (0..3)
+            .into_iter()
+            .map(|_| channel.new_receiver())
+            .collect::<Vec<_>>();
+
+        channel.send(());
+
+        for receiver in receivers {
+            let value = receiver.recv();
+            assert_eq!(value.unwrap(), ());
+        }
     }
 }

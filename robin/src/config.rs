@@ -26,11 +26,6 @@ pub struct Config {
     /// Namespace used for all Redis values.
     pub redis_namespace: String,
 
-    /// Whether or not to repeat looking for jobs when the timeout is hit. This
-    /// defaults to `true` and should probably remain that way.
-    /// This is used when testing Robin internally.
-    pub repeat_on_timeout: bool,
-
     /// The maximum number of times a job will be retried. After that it will discarded.
     pub retry_count_limit: u32,
 
@@ -48,7 +43,6 @@ impl Default for Config {
         Config {
             timeout: 30,
             redis_namespace: "robin_".to_string(),
-            repeat_on_timeout: true,
             retry_count_limit: 10,
             worker_count: num_cpus::get(),
             redis_url: "redis://127.0.0.1/".to_string(),
