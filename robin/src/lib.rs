@@ -124,6 +124,11 @@ pub mod macros;
 mod ticker;
 mod queue_adapters;
 
+#[doc(hidden)]
+#[macro_use]
+#[cfg(not(release))]
+mod internal_macros;
+
 pub mod prelude {
     //! Reexports the most commonly used types and traits from the other modules.
     //! As long as you're doing standard things this is the only `use` you'll need.
