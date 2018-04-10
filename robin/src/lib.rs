@@ -88,6 +88,8 @@
 //! use robin::prelude::*;
 //! ```
 
+#[macro_use]
+extern crate log;
 extern crate num_cpus;
 extern crate redis;
 #[macro_use]

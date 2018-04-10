@@ -19,6 +19,7 @@ uuid = { version = "0.6", features = ["v4"] }
 robin-derives = { version = "0.3.0", path = "../robin-derives" }
 typesafe-derive-builder = { version = "0.1.0", path = "../typesafe-derive-builder" }
 num_cpus = "1.8.0"
+log = "0.4"
 
 [dev-dependencies]
 version-sync = "0.5"

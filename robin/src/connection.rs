@@ -42,7 +42,7 @@ impl WorkerConnection {
 
         match iden {
             QueueIdentifier::Main => {
-                println!("Enqueued \"{}\" with {}", name.0, args.json());
+                debug!("Enqueued \"{}\" with {}", name.0, args.json());
                 self.queue.enqueue(enq_job, iden)
             }
             QueueIdentifier::Retry => self.queue.enqueue(enq_job, iden),

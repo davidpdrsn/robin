@@ -39,7 +39,7 @@ where
             total_worker_count: worker_count,
         };
 
-        println!(
+        debug!(
             "Robin worker {}/{} started",
             worker_number.number, worker_count
         );
@@ -61,10 +61,10 @@ fn spawn_metrics_printer(ticker: Arc<Ticker>) {
     thread::spawn(move || loop {
         thread::sleep(Duration::from_secs(5));
         let jobs_per_second = ticker.ticks_per_second();
-        println!("Robin worker metric: Jobs per second {}", jobs_per_second);
+        debug!("Robin worker metric: Jobs per second {}", jobs_per_second);
 
         if ticker.elapsed() > Duration::from_secs(10) {
-            println!("Resetting worker ticker");
+            debug!("Resetting worker ticker");
             ticker.reset();
         }
     });
@@ -112,7 +112,7 @@ fn perform_job(
             let retry_count = prev_count.increment();
 
             if retry_count.limit_reached(con.config()) {
-                println!(
+                debug!(
                     "Not retrying {} anymore. Retry count was {:?}",
                     job.name().0,
                     prev_count,
@@ -125,12 +125,12 @@ fn perform_job(
                 }
             } else {
                 match iden {
-                    QueueIdentifier::Main => println!(
+                    QueueIdentifier::Main => debug!(
                         "Performing {} on worker {}",
                         job.name().0,
                         worker_number.description()
                     ),
-                    QueueIdentifier::Retry => println!(
+                    QueueIdentifier::Retry => debug!(
                         "Retying {} on worker {}. Retry count is {:?}",
                         job.name().0,
                         worker_number.description(),
@@ -181,7 +181,7 @@ fn perform_or_retry(
     ticker.tick();
 
     match job_result {
-        Ok(()) => println!(
+        Ok(()) => debug!(
             "Performed {} on worker {}",
             job.name().0,
             worker_number.description()
