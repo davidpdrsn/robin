@@ -1,6 +1,8 @@
 # Robin
 
-- Master: [![Build Status](https://travis-ci.org/davidpdrsn/robin.svg?branch=master)](https://travis-ci.org/davidpdrsn/robin)
+[![Build Status](https://travis-ci.org/davidpdrsn/robin.svg?branch=master)](https://travis-ci.org/davidpdrsn/robin)
+[![Crates.io](https://img.shields.io/crates/v/robin.svg)](https://crates.io/crates/robin)
+[![Documentation](https://docs.rs/robin/badge.svg)](https://docs.rs/robin/)
 
 Background jobs for Rust inspired by ActiveJob and Sidekiq :heart:
 
