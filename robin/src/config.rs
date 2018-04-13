@@ -13,21 +13,10 @@ use num_cpus;
 /// config.worker_count = 10;
 ///
 /// assert_eq!(config.worker_count, 10);
-/// assert_eq!(config.timeout, 30);
 /// # }
 /// ```
 #[derive(Debug, Clone)]
 pub struct Config {
-    /// The number of seconds the worker will block while waiting for a new job
-    /// to be enqueued. By default workers will retry after the timeout is hit,
-    /// so you shouldn't need to configure this.
-    pub timeout: usize,
-
-    /// Whether or not to repeat looking for jobs when the timeout is hit. This
-    /// defaults to `true` and should probably remain that way.
-    /// This is used when testing Robin internally.
-    pub repeat_on_timeout: bool,
-
     /// The maximum number of times a job will be retried. After that it will discarded.
     pub retry_count_limit: u32,
 
@@ -40,8 +29,6 @@ pub struct Config {
 impl Default for Config {
     fn default() -> Config {
         Config {
-            timeout: 30,
-            repeat_on_timeout: true,
             retry_count_limit: 10,
             worker_count: num_cpus::get(),
         }

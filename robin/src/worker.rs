@@ -1,7 +1,7 @@
 use config::Config;
 use connection::*;
 use job::*;
-use queue_adapters::{DequeueTimeout, JobQueue, NoJobDequeued, QueueIdentifier, RetryCount};
+use queue_adapters::{JobQueue, NoJobDequeued, QueueIdentifier, RetryCount};
 use serde_json;
 use std::sync::mpsc::*;
 use std::thread::{self, JoinHandle};
@@ -164,7 +164,7 @@ fn dequeue_job<Q>(con: &Connection<Q>, iden: QueueIdentifier) -> DequeuedJob<Q>
 where
     Q: JobQueue,
 {
-    con.dequeue_from(iden, DequeueTimeout(con.config().timeout))
+    con.dequeue_from(iden)
 }
 
 #[derive(Debug)]

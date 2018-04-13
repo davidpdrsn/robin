@@ -17,11 +17,7 @@ where
 
     fn enqueue(&self, enq_job: EnqueuedJob, iden: QueueIdentifier) -> RobinResult<()>;
 
-    fn dequeue(
-        &self,
-        timeout: &DequeueTimeout,
-        iden: QueueIdentifier,
-    ) -> Result<EnqueuedJob, NoJobDequeued>;
+    fn dequeue(&self, iden: QueueIdentifier) -> Result<EnqueuedJob, NoJobDequeued>;
 
     fn delete_all(&self, iden: QueueIdentifier) -> RobinResult<()>;
 
@@ -108,11 +104,6 @@ impl From<Error> for NoJobDequeued {
         NoJobDequeued::BecauseError(error)
     }
 }
-
-/// New type wrapper around number of seconds to block when dequeueing a job.
-/// This gets constructed from the `Config`.
-#[derive(Debug, Copy, Clone)]
-pub struct DequeueTimeout(pub usize);
 
 /// The different queues supported by Robin.
 #[derive(EachVariant, Debug, Copy, Clone)]

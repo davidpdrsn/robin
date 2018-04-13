@@ -10,14 +10,13 @@ pub fn setup() {
 pub fn teardown() {}
 
 pub fn test_config() -> Config {
-    let mut config = Config::default();
-    config.timeout = 1;
-    config
+    Config::default()
 }
 
 pub fn test_redis_init() -> RedisConfig {
     let mut config = RedisConfig::default();
     config.namespace = uuid();
+    config.timeout = 1;
     config
 }
 

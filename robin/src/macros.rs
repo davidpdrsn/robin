@@ -356,13 +356,13 @@ macro_rules! robin_establish_connection {
 /// # }
 /// let config = Config::default();
 /// # let mut config = Config::default();
-/// # config.timeout = 1;
 /// # config.retry_count_limit = 1;
 /// # config.worker_count = 1;
 /// #
 /// let queue_config = RedisConfig::default();
 /// # let mut queue_config = RedisConfig::default();
 /// # queue_config.namespace = "doc_tests_for_boot_worker_macro".to_string();
+/// # queue_config.timeout = 1;
 ///
 /// # if false {
 /// robin_boot_worker!(RedisQueue, config, queue_config);

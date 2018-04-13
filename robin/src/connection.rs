@@ -1,8 +1,8 @@
 use config::Config;
 use error::*;
 use job::*;
-use queue_adapters::{DequeueTimeout, EnqueuedJob, JobQueue, NoJobDequeued, QueueIdentifier,
-                     RetryCount, redis_queue::RedisQueue};
+use queue_adapters::{EnqueuedJob, JobQueue, NoJobDequeued, QueueIdentifier, RetryCount,
+                     redis_queue::RedisQueue};
 
 /// Create a new connection.
 ///
@@ -82,9 +82,8 @@ where
     pub fn dequeue_from<'a>(
         &'a self,
         iden: QueueIdentifier,
-        timeout: DequeueTimeout,
     ) -> Result<(Box<Job<Q> + Send>, String, RetryCount), NoJobDequeued> {
-        let enq_job = self.queue.dequeue(&timeout, iden)?;
+        let enq_job = self.queue.dequeue(iden)?;
 
         let args = enq_job.args().to_string();
         let name = enq_job.name().to_string();

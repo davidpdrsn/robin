@@ -49,13 +49,11 @@
 //! }
 //!
 //! let config = Config::default();
+//! #
 //! let queue_config = RedisConfig::default();
-//! #
-//! # let mut config = Config::default();
-//! # config.timeout = 1;
-//! #
 //! # let mut queue_config = RedisConfig::default();
 //! # queue_config.namespace = "doc_tests_for_crate".to_string();
+//! # queue_config.timeout = 1;
 //!
 //! let con = robin_establish_connection!(RedisQueue, config, queue_config)?;
 //! # con.delete_all();

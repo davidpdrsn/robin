@@ -1,7 +1,7 @@
 use error::*;
 use redis::{Client, Commands};
 use serde_json;
-use super::{DequeueTimeout, EnqueuedJob, JobQueue, NoJobDequeued, QueueIdentifier};
+use super::{EnqueuedJob, JobQueue, NoJobDequeued, QueueIdentifier};
 use redis;
 use std::fmt;
 use std::default::Default;
@@ -11,6 +11,7 @@ pub struct RedisQueue {
     redis: redis::Connection,
     redis_url: String,
     key: String,
+    timeout: usize,
 }
 
 impl RedisQueue {
@@ -24,11 +25,17 @@ impl RedisQueue {
 pub struct RedisConfig {
     pub url: String,
     pub namespace: String,
+
+    /// The number of seconds the worker will block while waiting for a new job
+    /// to be enqueued. By default workers will retry after the timeout is hit,
+    /// so you shouldn't need to configure this.
+    pub timeout: usize,
 }
 
 impl Default for RedisConfig {
     fn default() -> RedisConfig {
         RedisConfig {
+            timeout: 30,
             namespace: "robin_".to_string(),
             url: "redis://127.0.0.1/".to_string(),
         }
@@ -48,6 +55,7 @@ impl JobQueue for RedisQueue {
             redis: con,
             redis_url: init.url.to_string(),
             key: init.namespace.to_string(),
+            timeout: init.timeout,
         })
     }
 
@@ -60,12 +68,8 @@ impl JobQueue for RedisQueue {
     }
 
     /// Pull a job out of the queue. This will block for `timeout` seconds if the queue is empty.
-    fn dequeue(
-        &self,
-        timeout: &DequeueTimeout,
-        iden: QueueIdentifier,
-    ) -> Result<EnqueuedJob, NoJobDequeued> {
-        let timeout_in_seconds = timeout.0;
+    fn dequeue(&self, iden: QueueIdentifier) -> Result<EnqueuedJob, NoJobDequeued> {
+        let timeout_in_seconds = self.timeout;
         let bulk: Vec<redis::Value> = self.redis.blpop(&self.key(iden), timeout_in_seconds)?;
 
         match bulk.get(1) {
