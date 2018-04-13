@@ -21,12 +21,12 @@ fn main() {
 }
 
 fn worker(config: Config) {
-    let queue_init = RedisQueueInit::default();
+    let queue_init = RedisConfig::default();
     robin_boot_worker!(RedisQueue, &config, queue_init);
 }
 
 fn client(config: Config) {
-    let queue_init = RedisQueueInit::default();
+    let queue_init = RedisConfig::default();
     let con =
         robin_establish_connection!(RedisQueue, config, queue_init).expect("Failed to connect");
 

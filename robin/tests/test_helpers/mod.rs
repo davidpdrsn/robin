@@ -15,8 +15,8 @@ pub fn test_config() -> Config {
     config
 }
 
-pub fn test_redis_init() -> RedisQueueInit {
-    let mut config = RedisQueueInit::default();
+pub fn test_redis_init() -> RedisConfig {
+    let mut config = RedisConfig::default();
     config.namespace = uuid();
     config
 }

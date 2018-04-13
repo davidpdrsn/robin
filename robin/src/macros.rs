@@ -304,7 +304,7 @@ macro_rules! jobs {
 /// #     Android,
 /// # }
 /// let config = Config::default();
-/// let queue_init = RedisQueueInit::default();
+/// let queue_init = RedisConfig::default();
 ///
 /// let con = robin_establish_connection!(RedisQueue, config, queue_init)?;
 ///
@@ -360,8 +360,8 @@ macro_rules! robin_establish_connection {
 /// # config.retry_count_limit = 1;
 /// # config.worker_count = 1;
 /// #
-/// let queue_init = RedisQueueInit::default();
-/// # let mut queue_init = RedisQueueInit::default();
+/// let queue_init = RedisConfig::default();
+/// # let mut queue_init = RedisConfig::default();
 /// # queue_init.namespace = "doc_tests_for_boot_worker_macro".to_string();
 ///
 /// # if false {

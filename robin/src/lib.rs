@@ -49,12 +49,12 @@
 //! }
 //!
 //! let config = Config::default();
-//! let queue_init = RedisQueueInit::default();
+//! let queue_init = RedisConfig::default();
 //! #
 //! # let mut config = Config::default();
 //! # config.timeout = 1;
 //! #
-//! # let mut queue_init = RedisQueueInit::default();
+//! # let mut queue_init = RedisConfig::default();
 //! # queue_init.namespace = "doc_tests_for_crate".to_string();
 //!
 //! let con = robin_establish_connection!(RedisQueue, config, queue_init)?;
@@ -156,5 +156,5 @@ pub mod prelude {
 }
 
 pub mod redis_queue {
-    pub use queue_adapters::redis_queue::{RedisQueue, RedisQueueInit};
+    pub use queue_adapters::redis_queue::{RedisConfig, RedisQueue};
 }

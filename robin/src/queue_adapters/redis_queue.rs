@@ -21,14 +21,14 @@ impl RedisQueue {
 
 /// The arguments required to create a new `RedisQueue`
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
-pub struct RedisQueueInit {
+pub struct RedisConfig {
     pub url: String,
     pub namespace: String,
 }
 
-impl Default for RedisQueueInit {
-    fn default() -> RedisQueueInit {
-        RedisQueueInit {
+impl Default for RedisConfig {
+    fn default() -> RedisConfig {
+        RedisConfig {
             namespace: "robin_".to_string(),
             url: "redis://127.0.0.1/".to_string(),
         }
@@ -36,10 +36,10 @@ impl Default for RedisQueueInit {
 }
 
 impl JobQueue for RedisQueue {
-    type Init = RedisQueueInit;
+    type Init = RedisConfig;
 
     /// Create a new `RedisQueue` using the given config
-    fn new(init: &RedisQueueInit) -> RobinResult<Self> {
+    fn new(init: &RedisConfig) -> RobinResult<Self> {
         let client = Client::open(init.url.as_ref())?;
 
         let con = client.get_connection()?;
