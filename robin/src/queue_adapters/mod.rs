@@ -11,9 +11,9 @@ pub trait JobQueue
 where
     Self: Sized,
 {
-    type Init;
+    type Config;
 
-    fn new(init: &Self::Init) -> RobinResult<Self>;
+    fn new(init: &Self::Config) -> RobinResult<Self>;
 
     fn enqueue(&self, enq_job: EnqueuedJob, iden: QueueIdentifier) -> RobinResult<()>;
 

@@ -21,14 +21,14 @@ robin_test!(performing_jobs, || {
     let filename = uuid();
 
     let config = test_config();
-    let queue_init = test_redis_init();
-    let con = robin_establish_connection!(RedisQueue, config, queue_init).unwrap();
+    let queue_config = test_redis_init();
+    let con = robin_establish_connection!(RedisQueue, config, queue_config).unwrap();
 
     TestJob::perform_later(&filename, &con).unwrap();
 
     robin::worker::spawn_workers::<RedisQueue, _, _>(
         &config.clone(),
-        queue_init.clone(),
+        queue_config.clone(),
         __robin_lookup_job,
     ).perform_all_jobs_and_die();
 
@@ -45,8 +45,8 @@ robin_test!(main_queue_size_test, || {
     }
 
     let config = test_config();
-    let queue_init = test_redis_init();
-    let con = robin_establish_connection!(RedisQueue, config, queue_init).unwrap();
+    let queue_config = test_redis_init();
+    let con = robin_establish_connection!(RedisQueue, config, queue_config).unwrap();
 
     assert_eq!(con.main_queue_size().unwrap(), 0);
 
@@ -58,7 +58,7 @@ robin_test!(main_queue_size_test, || {
 
     robin::worker::spawn_workers::<RedisQueue, _, _>(
         &config.clone(),
-        queue_init.clone(),
+        queue_config.clone(),
         __robin_lookup_job,
     ).perform_all_jobs_and_die();
 
@@ -75,8 +75,8 @@ robin_test!(retrying_jobs, || {
     }
 
     let config = test_config();
-    let queue_init = test_redis_init();
-    let con = robin_establish_connection!(RedisQueue, config, queue_init).unwrap();
+    let queue_config = test_redis_init();
+    let con = robin_establish_connection!(RedisQueue, config, queue_config).unwrap();
 
     assert_eq!(con.main_queue_size().unwrap(), 0);
 
@@ -84,7 +84,7 @@ robin_test!(retrying_jobs, || {
 
     robin::worker::spawn_workers::<RedisQueue, _, _>(
         &config.clone(),
-        queue_init.clone(),
+        queue_config.clone(),
         __robin_lookup_job,
     ).perform_all_jobs_and_die();
 

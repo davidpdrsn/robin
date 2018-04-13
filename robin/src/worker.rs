@@ -17,13 +17,13 @@ use std::thread::{self, JoinHandle};
 ///
 /// Make sure the config you're using here is the same config you use to establish the connection
 /// in [`robin_establish_connection!`](../macro.robin_establish_connection.html).
-pub fn boot<Q, T, K>(config: &Config, queue_init: K, lookup_job: T)
+pub fn boot<Q, T, K>(config: &Config, queue_config: K, lookup_job: T)
 where
     K: 'static + Clone + Send,
-    Q: JobQueue<Init = K>,
+    Q: JobQueue<Config = K>,
     T: 'static + LookupJob<Q> + Send + Clone,
 {
-    spawn_workers(config, queue_init, lookup_job).job_loop()
+    spawn_workers(config, queue_config, lookup_job).job_loop()
 }
 
 /// Spawn the workers and return the [`WorkerManager`](struct.WorkerManager) which enables
@@ -33,10 +33,10 @@ where
 ///
 /// If you don't need the `WorkerManager` but just want to keep performing jobs in an infinite
 /// loop, use [`boot`](fn.boot.html) instead.
-pub fn spawn_workers<Q, T, K>(config: &Config, queue_init: K, lookup_job: T) -> WorkerManager
+pub fn spawn_workers<Q, T, K>(config: &Config, queue_config: K, lookup_job: T) -> WorkerManager
 where
     K: 'static + Clone + Send,
-    Q: JobQueue<Init = K>,
+    Q: JobQueue<Config = K>,
     T: 'static + LookupJob<Q> + Send + Clone,
 {
     let mut channel: MultiplexChannel<WorkerMessage> = MultiplexChannel::new();
@@ -50,7 +50,7 @@ where
                 &config,
                 &lookup_job,
                 QueueIdentifier::Main,
-                queue_init.clone(),
+                queue_config.clone(),
             )
         })
         .collect();
@@ -60,7 +60,7 @@ where
         &config,
         &lookup_job,
         QueueIdentifier::Retry,
-        queue_init.clone(),
+        queue_config.clone(),
     ));
 
     WorkerManager { handles, channel }
@@ -71,17 +71,17 @@ fn spawn_worker<T, Q, K>(
     config: &Config,
     lookup_job: &T,
     queue_iden: QueueIdentifier,
-    queue_init: K,
+    queue_config: K,
 ) -> JoinHandle<()>
 where
     K: 'static + Clone + Send,
-    Q: JobQueue<Init = K>,
+    Q: JobQueue<Config = K>,
     T: 'static + LookupJob<Q> + Send + Clone,
 {
     let config = config.clone();
-    let queue_init = queue_init.clone();
+    let queue_config = queue_config.clone();
     let lookup_job = lookup_job.clone();
-    thread::spawn(move || worker_loop(receiver, config, lookup_job, queue_iden, queue_init))
+    thread::spawn(move || worker_loop(receiver, config, lookup_job, queue_iden, queue_config))
 }
 
 /// Struct the allows you to communicate with the running workers.
@@ -124,12 +124,12 @@ fn worker_loop<Q, T, K>(
     config: Config,
     lookup_job: T,
     queue_iden: QueueIdentifier,
-    queue_init: K,
+    queue_config: K,
 ) where
-    Q: JobQueue<Init = K>,
+    Q: JobQueue<Config = K>,
     T: 'static + LookupJob<Q>,
 {
-    let con = establish(config, queue_init, lookup_job).expect("failed to establish connection");
+    let con = establish(config, queue_config, lookup_job).expect("failed to establish connection");
     let mut received_perform_jobs_and_die = false;
 
     loop {

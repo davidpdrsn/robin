@@ -304,9 +304,9 @@ macro_rules! jobs {
 /// #     Android,
 /// # }
 /// let config = Config::default();
-/// let queue_init = RedisConfig::default();
+/// let queue_config = RedisConfig::default();
 ///
-/// let con = robin_establish_connection!(RedisQueue, config, queue_init)?;
+/// let con = robin_establish_connection!(RedisQueue, config, queue_config)?;
 ///
 /// let args = SendPushNotificationArgs {
 ///     device_id: "123".to_string(),
@@ -319,11 +319,11 @@ macro_rules! jobs {
 /// ```
 #[macro_export]
 macro_rules! robin_establish_connection {
-    ($ty:ty, $config:expr, $queue_init:expr) => (
+    ($ty:ty, $config:expr, $queue_config:expr) => (
         {
             let con: RobinResult<Connection<$ty>> = robin::connection::establish(
                 $config.clone(),
-                $queue_init.clone(),
+                $queue_config.clone(),
                 __robin_lookup_job,
             );
             con
@@ -360,18 +360,22 @@ macro_rules! robin_establish_connection {
 /// # config.retry_count_limit = 1;
 /// # config.worker_count = 1;
 /// #
-/// let queue_init = RedisConfig::default();
-/// # let mut queue_init = RedisConfig::default();
-/// # queue_init.namespace = "doc_tests_for_boot_worker_macro".to_string();
+/// let queue_config = RedisConfig::default();
+/// # let mut queue_config = RedisConfig::default();
+/// # queue_config.namespace = "doc_tests_for_boot_worker_macro".to_string();
 ///
 /// # if false {
-/// robin_boot_worker!(RedisQueue, config, queue_init);
+/// robin_boot_worker!(RedisQueue, config, queue_config);
 /// # }
 /// # }
 /// ```
 #[macro_export]
 macro_rules! robin_boot_worker {
-    ($ty:ty, $config:expr, $queue_init:expr) => (
-        robin::worker::boot::<$ty, _, _>(&$config.clone(), $queue_init.clone(), __robin_lookup_job);
+    ($ty:ty, $config:expr, $queue_config:expr) => (
+        robin::worker::boot::<$ty, _, _>(
+            &$config.clone(),
+            $queue_config.clone(),
+            __robin_lookup_job,
+        );
     )
 }

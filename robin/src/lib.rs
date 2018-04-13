@@ -49,15 +49,15 @@
 //! }
 //!
 //! let config = Config::default();
-//! let queue_init = RedisConfig::default();
+//! let queue_config = RedisConfig::default();
 //! #
 //! # let mut config = Config::default();
 //! # config.timeout = 1;
 //! #
-//! # let mut queue_init = RedisConfig::default();
-//! # queue_init.namespace = "doc_tests_for_crate".to_string();
+//! # let mut queue_config = RedisConfig::default();
+//! # queue_config.namespace = "doc_tests_for_crate".to_string();
 //!
-//! let con = robin_establish_connection!(RedisQueue, config, queue_init)?;
+//! let con = robin_establish_connection!(RedisQueue, config, queue_config)?;
 //! # con.delete_all();
 //!
 //! assert_eq!(con.main_queue_size()?, 0);
@@ -73,11 +73,11 @@
 //! # if true {
 //! # robin::worker::spawn_workers::<RedisQueue, _, _>(
 //! #     &config.clone(),
-//! #     queue_init.clone(),
+//! #     queue_config.clone(),
 //! #     __robin_lookup_job,
 //! # ).perform_all_jobs_and_die();
 //! # } else {
-//! robin_boot_worker!(RedisQueue, config, queue_init);
+//! robin_boot_worker!(RedisQueue, config, queue_config);
 //! # }
 //!
 //! assert_eq!(con.main_queue_size()?, 0);

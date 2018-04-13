@@ -36,7 +36,7 @@ impl Default for RedisConfig {
 }
 
 impl JobQueue for RedisQueue {
-    type Init = RedisConfig;
+    type Config = RedisConfig;
 
     /// Create a new `RedisQueue` using the given config
     fn new(init: &RedisConfig) -> RobinResult<Self> {

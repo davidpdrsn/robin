@@ -16,14 +16,14 @@ use queue_adapters::{DequeueTimeout, EnqueuedJob, JobQueue, NoJobDequeued, Queue
 /// [`robin_boot_worker!`](../macro.robin_boot_worker.html).
 pub fn establish<L, Q, K>(
     config: Config,
-    queue_init: K,
+    queue_config: K,
     lookup_job: L,
 ) -> RobinResult<Connection<Q>>
 where
     L: 'static + LookupJob<Q>,
-    Q: JobQueue<Init = K>,
+    Q: JobQueue<Config = K>,
 {
-    JobQueue::new(&queue_init).map(|queue| Connection {
+    JobQueue::new(&queue_config).map(|queue| Connection {
         queue: queue,
         config: config,
         lookup_job: Box::new(lookup_job),
