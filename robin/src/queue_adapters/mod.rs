@@ -1,6 +1,10 @@
 /// Contains a queue implementation using Redis.
 pub mod redis_queue;
 
+/// Contains an in-memory queue. This queue stores the jobs in-memory of the running Rust process
+/// and therefore wont work across processes. Normally you'd only use this during testing.
+pub mod memory_queue;
+
 use serde_json;
 use redis;
 use error::*;
@@ -68,6 +72,15 @@ pub struct EnqueuedJob {
 }
 
 impl EnqueuedJob {
+    /// Create a new `EnqueuedJob`
+    pub fn new(name: &str, args: &str, retry_count: RetryCount) -> Self {
+        EnqueuedJob {
+            name: name.to_string(),
+            args: args.to_string(),
+            retry_count: retry_count,
+        }
+    }
+
     /// Get the name
     pub fn name(&self) -> &str {
         &self.name

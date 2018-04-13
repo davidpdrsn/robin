@@ -157,3 +157,9 @@ pub mod prelude {
 pub mod redis_queue {
     pub use queue_adapters::redis_queue::{RedisConfig, RedisQueue};
 }
+
+/// Contains the types you'll need if you wish to use Robins in-memory queue. Usually only used for
+/// testing.
+pub mod memory_queue {
+    pub use queue_adapters::memory_queue::{MemoryQueue, MemoryQueueConfig};
+}

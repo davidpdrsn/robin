@@ -1,12 +1,13 @@
 use error::*;
-use redis::{Client, Commands};
 use serde_json;
 use super::{EnqueuedJob, JobQueue, NoJobDequeued, QueueIdentifier};
-use redis;
 use std::fmt;
-use std::default::Default;
 
-/// A wrapper around an actual `redis::Connection`.
+use std::default::Default;
+use redis;
+use redis::{Client, Commands};
+
+/// A queue backend the persists the jobs in Redis.
 pub struct RedisQueue {
     redis: redis::Connection,
     redis_url: String,
@@ -32,9 +33,7 @@ pub struct RedisConfig {
     /// namespace.
     pub namespace: String,
 
-    /// The number of seconds the worker will block while waiting for a new job
-    /// to be enqueued. By default workers will retry after the timeout is hit,
-    /// so you shouldn't need to configure this.
+    /// The number of seconds the worker will block while waiting for a new job to be enqueued.
     pub timeout: usize,
 }
 
