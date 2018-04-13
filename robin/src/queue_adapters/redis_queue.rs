@@ -23,7 +23,13 @@ impl RedisQueue {
 /// The arguments required to create a new `RedisQueue`
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct RedisConfig {
+    /// The URL used to connect to Redis.
+    ///
+    /// Default is "redis://127.0.0.1/"
     pub url: String,
+
+    /// The key that will be prepended all Robin related Redis keys. Effectively working as a
+    /// namespace.
     pub namespace: String,
 
     /// The number of seconds the worker will block while waiting for a new job

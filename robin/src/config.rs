@@ -15,7 +15,7 @@ use num_cpus;
 /// assert_eq!(config.worker_count, 10);
 /// # }
 /// ```
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub struct Config {
     /// The maximum number of times a job will be retried. After that it will discarded.
     pub retry_count_limit: u32,

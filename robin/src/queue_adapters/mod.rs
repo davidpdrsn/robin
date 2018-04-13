@@ -7,20 +7,27 @@ use error::*;
 use config::Config;
 use std::marker::Sized;
 
+/// Trait that represents a backend that can be used to store jobs.
 pub trait JobQueue
 where
     Self: Sized,
 {
+    /// The type required to configure the queue.
     type Config;
 
+    /// Create a new queue with the given config.
     fn new(init: &Self::Config) -> RobinResult<Self>;
 
+    /// Push a job into the queue.
     fn enqueue(&self, enq_job: EnqueuedJob, iden: QueueIdentifier) -> RobinResult<()>;
 
+    /// Pull a job from the queue.
     fn dequeue(&self, iden: QueueIdentifier) -> Result<EnqueuedJob, NoJobDequeued>;
 
+    /// Delete all jobs from the queue.
     fn delete_all(&self, iden: QueueIdentifier) -> RobinResult<()>;
 
+    /// Get the number of jobs in the queue.
     fn size(&self, iden: QueueIdentifier) -> RobinResult<usize>;
 }
 
