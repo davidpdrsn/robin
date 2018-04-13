@@ -1,7 +1,7 @@
 use config::Config;
 use connection::*;
 use job::*;
-use queue_adapters::{DequeueTimeout, NoJobDequeued, QueueIdentifier, RetryCount};
+use queue_adapters::{DequeueTimeout, JobQueue, NoJobDequeued, QueueIdentifier, RetryCount};
 use serde_json;
 use std::sync::mpsc::*;
 use std::thread::{self, JoinHandle};
@@ -17,11 +17,13 @@ use std::thread::{self, JoinHandle};
 ///
 /// Make sure the config you're using here is the same config you use to establish the connection
 /// in [`robin_establish_connection!`](../macro.robin_establish_connection.html).
-pub fn boot<T>(config: &Config, lookup_job: T)
+pub fn boot<Q, T, K>(config: &Config, queue_init: K, lookup_job: T)
 where
-    T: 'static + LookupJob + Send + Clone,
+    K: 'static + Clone + Send,
+    Q: JobQueue<Init = K>,
+    T: 'static + LookupJob<Q> + Send + Clone,
 {
-    spawn_workers(config, lookup_job).job_loop()
+    spawn_workers(config, queue_init, lookup_job).job_loop()
 }
 
 /// Spawn the workers and return the [`WorkerManager`](struct.WorkerManager) which enables
@@ -31,9 +33,11 @@ where
 ///
 /// If you don't need the `WorkerManager` but just want to keep performing jobs in an infinite
 /// loop, use [`boot`](fn.boot.html) instead.
-pub fn spawn_workers<T>(config: &Config, lookup_job: T) -> WorkerManager
+pub fn spawn_workers<Q, T, K>(config: &Config, queue_init: K, lookup_job: T) -> WorkerManager
 where
-    T: 'static + LookupJob + Send + Clone,
+    K: 'static + Clone + Send,
+    Q: JobQueue<Init = K>,
+    T: 'static + LookupJob<Q> + Send + Clone,
 {
     let mut channel: MultiplexChannel<WorkerMessage> = MultiplexChannel::new();
 
@@ -46,6 +50,7 @@ where
                 &config,
                 &lookup_job,
                 QueueIdentifier::Main,
+                queue_init.clone(),
             )
         })
         .collect();
@@ -55,23 +60,28 @@ where
         &config,
         &lookup_job,
         QueueIdentifier::Retry,
+        queue_init.clone(),
     ));
 
     WorkerManager { handles, channel }
 }
 
-fn spawn_worker<T>(
+fn spawn_worker<T, Q, K>(
     receiver: Receiver<WorkerMessage>,
     config: &Config,
     lookup_job: &T,
     queue_iden: QueueIdentifier,
+    queue_init: K,
 ) -> JoinHandle<()>
 where
-    T: 'static + LookupJob + Send + Clone,
+    K: 'static + Clone + Send,
+    Q: JobQueue<Init = K>,
+    T: 'static + LookupJob<Q> + Send + Clone,
 {
     let config = config.clone();
+    let queue_init = queue_init.clone();
     let lookup_job = lookup_job.clone();
-    thread::spawn(move || worker_loop(receiver, config, lookup_job, queue_iden))
+    thread::spawn(move || worker_loop(receiver, config, lookup_job, queue_iden, queue_init))
 }
 
 /// Struct the allows you to communicate with the running workers.
@@ -109,15 +119,17 @@ enum WorkerMessage {
     PerformJobsAndDie,
 }
 
-fn worker_loop<T>(
+fn worker_loop<Q, T, K>(
     receiver: Receiver<WorkerMessage>,
     config: Config,
     lookup_job: T,
     queue_iden: QueueIdentifier,
+    queue_init: K,
 ) where
-    T: 'static + LookupJob,
+    Q: JobQueue<Init = K>,
+    T: 'static + LookupJob<Q>,
 {
-    let con = establish(config, lookup_job).expect("failed to establish connection");
+    let con = establish(config, queue_init, lookup_job).expect("failed to establish connection");
     let mut received_perform_jobs_and_die = false;
 
     loop {
@@ -146,9 +158,12 @@ fn worker_loop<T>(
     }
 }
 
-type DequeuedJob = Result<(Box<Job + Send + 'static>, String, RetryCount), NoJobDequeued>;
+type DequeuedJob<Q> = Result<(Box<Job<Q> + Send + 'static>, String, RetryCount), NoJobDequeued>;
 
-fn dequeue_job(con: &WorkerConnection, iden: QueueIdentifier) -> DequeuedJob {
+fn dequeue_job<Q>(con: &Connection<Q>, iden: QueueIdentifier) -> DequeuedJob<Q>
+where
+    Q: JobQueue,
+{
     con.dequeue_from(iden, DequeueTimeout(con.config().timeout))
 }
 
@@ -165,7 +180,10 @@ enum NoJobPerformedReason {
     RetryLimitReached,
 }
 
-fn perform_job(job: DequeuedJob, con: &WorkerConnection) -> PerformJobOutput {
+fn perform_job<Q>(job: DequeuedJob<Q>, con: &Connection<Q>) -> PerformJobOutput
+where
+    Q: JobQueue,
+{
     match job {
         Ok((job, args, retry_count)) => perform_or_retry(con, job, args, retry_count),
 
@@ -179,9 +197,9 @@ fn perform_job(job: DequeuedJob, con: &WorkerConnection) -> PerformJobOutput {
     }
 }
 
-fn perform_or_retry(
-    con: &WorkerConnection,
-    job: Box<Job + Send>,
+fn perform_or_retry<Q: JobQueue>(
+    con: &Connection<Q>,
+    job: Box<Job<Q> + Send>,
     args: String,
     retry_count: RetryCount,
 ) -> PerformJobOutput {

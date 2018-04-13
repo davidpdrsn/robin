@@ -1,26 +1,50 @@
 use config::Config;
 use error::*;
 use job::*;
-use queue_adapters::{DequeueTimeout, EnqueuedJob, NoJobDequeued, QueueIdentifier, RetryCount,
-                     redis_queue::RedisQueue};
-use std::fmt;
+use queue_adapters::{DequeueTimeout, EnqueuedJob, JobQueue, NoJobDequeued, QueueIdentifier,
+                     RetryCount, redis_queue::RedisQueue};
 
-/// The connection to Redis. Required to enqueue and dequeue jobs.
+/// Create a new connection.
 ///
-/// Each `WorkerConnection` has exactly one actual Redis connection.
-pub struct WorkerConnection {
+/// **NOTE:** You normally wouldn't need to call this. Instead use the
+/// [`robin_establish_connection!`](../macro.robin_establish_connection.html) macro in the `macros` module.
+///
+/// The lookup function is necessary for parsing the `String` we get from Redis
+/// into a job type.
+///
+/// Make sure the config you're using here is the same config you use to boot the worker in
+/// [`robin_boot_worker!`](../macro.robin_boot_worker.html).
+pub fn establish<L, Q, K>(
     config: Config,
-    queue: RedisQueue,
-    lookup_job: Box<LookupJob>,
+    queue_init: K,
+    lookup_job: L,
+) -> RobinResult<Connection<Q>>
+where
+    L: 'static + LookupJob<Q>,
+    Q: JobQueue<Init = K>,
+{
+    JobQueue::new(&queue_init).map(|queue| Connection {
+        queue: queue,
+        config: config,
+        lookup_job: Box::new(lookup_job),
+    })
 }
 
-impl fmt::Debug for WorkerConnection {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "WorkerConnection {{ config: {:?} }}", self.config)
-    }
+/// The connection to the queue backend. Required to enqueue and dequeue jobs.
+#[allow(missing_debug_implementations)]
+pub struct Connection<Q> {
+    config: Config,
+    queue: Q,
+    lookup_job: Box<LookupJob<Q>>,
 }
 
-impl WorkerConnection {
+/// A connection that uses Redis as backend.
+pub type RedisConnection = Connection<RedisQueue>;
+
+impl<Q> Connection<Q>
+where
+    Q: JobQueue,
+{
     /// Returns the connections config
     pub fn config(&self) -> &Config {
         &self.config
@@ -59,7 +83,7 @@ impl WorkerConnection {
         &'a self,
         iden: QueueIdentifier,
         timeout: DequeueTimeout,
-    ) -> Result<(Box<Job + Send>, String, RetryCount), NoJobDequeued> {
+    ) -> Result<(Box<Job<Q> + Send>, String, RetryCount), NoJobDequeued> {
         let enq_job = self.queue.dequeue(&timeout, iden)?;
 
         let args = enq_job.args().to_string();
@@ -100,44 +124,24 @@ impl WorkerConnection {
         self.queue.size(iden).map(|size| size == 0)
     }
 
-    fn lookup_job(&self, name: &JobName) -> Option<Box<Job + Send>> {
+    fn lookup_job(&self, name: &JobName) -> Option<Box<Job<Q> + Send>> {
         self.lookup_job.lookup(name)
     }
 }
 
-/// Create a new connection.
-///
-/// **NOTE:** You normally wouldn't need to call this. Instead use the
-/// [`robin_establish_connection!`](../macro.robin_establish_connection.html) macro in the `macros` module.
-///
-/// The lookup function is necessary for parsing the `String` we get from Redis
-/// into a job type.
-///
-/// Make sure the config you're using here is the same config you use to boot the worker in
-/// [`robin_boot_worker!`](../macro.robin_boot_worker.html).
-pub fn establish<T: 'static + LookupJob>(
-    config: Config,
-    lookup_job: T,
-) -> RobinResult<WorkerConnection> {
-    RedisQueue::new(&config).map(|redis_queue| WorkerConnection {
-        queue: redis_queue,
-        config: config,
-        lookup_job: Box::new(lookup_job),
-    })
-}
-
 /// Trait that maps a `String` given to Robin by Redis to an actual job type.
-pub trait LookupJob {
+pub trait LookupJob<Q> {
     /// Perform the lookup.
-    fn lookup(&self, name: &JobName) -> Option<Box<Job + Send>>;
+    fn lookup(&self, name: &JobName) -> Option<Box<Job<Q> + Send>>;
 }
 
-impl<F> LookupJob for F
+impl<F, Q> LookupJob<Q> for F
 where
     F: Clone,
-    F: Fn(&JobName) -> Option<Box<Job + Send>>,
+    F: Fn(&JobName) -> Option<Box<Job<Q> + Send>>,
+    Q: JobQueue,
 {
-    fn lookup(&self, name: &JobName) -> Option<Box<Job + Send>> {
+    fn lookup(&self, name: &JobName) -> Option<Box<Job<Q> + Send>> {
         self(name)
     }
 }

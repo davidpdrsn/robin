@@ -1,6 +1,7 @@
 use std::{error, fmt, io, fs::{self, File}, io::{BufWriter, Write, prelude::*}};
 
 use robin::prelude::*;
+use robin::redis_queue::*;
 
 pub fn setup() {
     fs::create_dir("tests/tmp").ok();
@@ -10,10 +11,13 @@ pub fn teardown() {}
 
 pub fn test_config() -> Config {
     let mut config = Config::default();
-
-    config.redis_namespace = uuid();
     config.timeout = 1;
+    config
+}
 
+pub fn test_redis_init() -> RedisQueueInit {
+    let mut config = RedisQueueInit::default();
+    config.namespace = uuid();
     config
 }
 

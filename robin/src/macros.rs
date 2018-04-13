@@ -23,6 +23,7 @@
 /// extern crate serde_derive;
 /// #
 /// use robin::prelude::*;
+/// use robin::redis_queue::*;
 ///
 /// # fn main() {
 /// jobs! {
@@ -30,7 +31,7 @@
 /// }
 ///
 /// impl SendPushNotification {
-///     fn perform(args: SendPushNotificationArgs, _con: &WorkerConnection) -> JobResult {
+///     fn perform<Q>(args: SendPushNotificationArgs, _con: &Connection<Q>) -> JobResult {
 ///         // Code for actually sending push notifications
 ///         Ok(())
 ///     }
@@ -111,13 +112,14 @@
 /// # extern crate serde_derive;
 /// #
 /// # use robin::prelude::*;
+/// # use robin::redis_queue::*;
 /// #
 /// jobs! {
 ///     SendPushNotification(SendPushNotificationArgs),
 /// }
 /// #
 /// # impl SendPushNotification {
-/// #     fn perform(args: SendPushNotificationArgs, _con: &WorkerConnection) -> JobResult {
+/// #     fn perform<Q>(args: SendPushNotificationArgs, _con: &Connection<Q>) -> JobResult {
 /// #         Ok(())
 /// #     }
 /// # }
@@ -139,17 +141,18 @@
 /// # extern crate serde_derive;
 /// #
 /// # use robin::prelude::*;
+/// # use robin::redis_queue::*;
 /// #
 /// pub struct SendPushNotification;
 ///
-/// impl Job for SendPushNotification {
+/// impl<Q: JobQueue> Job<Q> for SendPushNotification {
 ///     #[inline]
 ///     fn name(&self) -> JobName {
 ///         JobName::from("SendPushNotification")
 ///     }
 ///
 ///     #[inline]
-///     fn perform(&self, args: &Args, con: &WorkerConnection) -> JobResult {
+///     fn perform(&self, args: &Args, con: &Connection<Q>) -> JobResult {
 ///         SendPushNotification::perform(args.deserialize()?, con)
 ///     }
 /// }
@@ -157,24 +160,24 @@
 /// impl SendPushNotification {
 ///     #[allow(dead_code)]
 ///     #[inline]
-///     pub fn perform_now(
+///     pub fn perform_now<Q: JobQueue>(
 ///         args: &SendPushNotificationArgs,
-///         con: &WorkerConnection,
+///         con: &Connection<Q>,
 ///     ) -> RobinResult<()> {
 ///         SendPushNotification.perform_now(args, con)
 ///     }
 ///
 ///     #[allow(dead_code)]
 ///     #[inline]
-///     pub fn perform_later(
+///     pub fn perform_later<Q: JobQueue>(
 ///         args: &SendPushNotificationArgs,
-///         con: &WorkerConnection,
+///         con: &Connection<Q>,
 ///     ) -> RobinResult<()> {
 ///         SendPushNotification.perform_later(args, con)
 ///     }
 /// }
 ///
-/// pub fn __robin_lookup_job(name: &JobName) -> Option<Box<Job + Send>> {
+/// pub fn __robin_lookup_job<Q: JobQueue>(name: &JobName) -> Option<Box<Job<Q> + Send>> {
 ///     match name.0.as_ref() {
 ///         "SendPushNotification" => Some(Box::new(SendPushNotification)),
 ///         _ => None,
@@ -182,7 +185,7 @@
 /// }
 /// #
 /// # impl SendPushNotification {
-/// #     fn perform(args: SendPushNotificationArgs, _con: &WorkerConnection) -> JobResult {
+/// #     fn perform<Q>(args: SendPushNotificationArgs, _con: &Connection<Q>) -> JobResult {
 /// #         Ok(())
 /// #     }
 /// # }
@@ -215,14 +218,15 @@ macro_rules! jobs {
         $(
             pub struct $id;
 
-            impl Job for $id {
+            impl<Q: JobQueue> Job<Q> for $id
+            {
                 #[inline]
                 fn name(&self) -> JobName {
                     JobName::from(stringify!($id))
                 }
 
                 #[inline]
-                fn perform(&self, args: &Args, con: &WorkerConnection) -> JobResult {
+                fn perform(&self, args: &Args, con: &Connection<Q>) -> JobResult {
                     $id::perform(args.deserialize()?, con)
                 }
             }
@@ -230,25 +234,26 @@ macro_rules! jobs {
             impl $id {
                 #[allow(dead_code)]
                 #[inline]
-                pub fn perform_now(
+                pub fn perform_now<Q: JobQueue>(
                     args: &$arg_type,
-                    con: &WorkerConnection,
+                    con: &Connection<Q>,
                 ) -> RobinResult<()> {
                     $id.perform_now(args, con)
                 }
 
                 #[allow(dead_code)]
                 #[inline]
-                pub fn perform_later(
+                pub fn perform_later<Q: JobQueue>(
                     args: &$arg_type,
-                    con: &WorkerConnection,
+                    con: &Connection<Q>,
                 ) -> RobinResult<()> {
                     $id.perform_later(args, con)
                 }
             }
         )*
 
-        pub fn __robin_lookup_job(name: &JobName) -> Option<Box<Job + Send>> {
+        pub fn __robin_lookup_job<Q: JobQueue>(name: &JobName) -> Option<Box<Job<Q> + Send>>
+        {
             match name.0.as_ref() {
                 $(
                     stringify!($id) => Some(Box::new($id)),
@@ -272,6 +277,7 @@ macro_rules! jobs {
 /// extern crate serde_derive;
 ///
 /// use robin::prelude::*;
+/// use robin::redis_queue::*;
 ///
 /// # use std::error::Error;
 /// # fn main() { try_main().unwrap() }
@@ -281,7 +287,7 @@ macro_rules! jobs {
 /// # }
 /// #
 /// # impl SendPushNotification {
-/// #     fn perform(args: SendPushNotificationArgs, _con: &WorkerConnection) -> JobResult {
+/// #     fn perform<Q>(args: SendPushNotificationArgs, _con: &Connection<Q>) -> JobResult {
 /// #         Ok(())
 /// #     }
 /// # }
@@ -298,8 +304,9 @@ macro_rules! jobs {
 /// #     Android,
 /// # }
 /// let config = Config::default();
+/// let queue_init = RedisQueueInit::default();
 ///
-/// let con = robin_establish_connection!(config)?;
+/// let con = robin_establish_connection!(RedisQueue, config, queue_init)?;
 ///
 /// let args = SendPushNotificationArgs {
 ///     device_id: "123".to_string(),
@@ -312,8 +319,15 @@ macro_rules! jobs {
 /// ```
 #[macro_export]
 macro_rules! robin_establish_connection {
-    ($config:expr) => (
-        robin::connection::establish($config.clone(), __robin_lookup_job)
+    ($ty:ty, $config:expr, $queue_init:expr) => (
+        {
+            let con: RobinResult<Connection<$ty>> = robin::connection::establish(
+                $config.clone(),
+                $queue_init.clone(),
+                __robin_lookup_job,
+            );
+            con
+        }
     )
 }
 
@@ -329,31 +343,35 @@ macro_rules! robin_establish_connection {
 /// extern crate serde_derive;
 ///
 /// use robin::prelude::*;
+/// use robin::redis_queue::*;
 ///
 /// # fn main() {
 /// # jobs! {
 /// #     MyJob(()),
 /// # }
 /// # impl MyJob {
-/// #     fn perform(args: (), _con: &WorkerConnection) -> JobResult {
+/// #     fn perform<Q>(args: (), _con: &Connection<Q>) -> JobResult {
 /// #         Ok(())
 /// #     }
 /// # }
 /// let config = Config::default();
 /// # let mut config = Config::default();
 /// # config.timeout = 1;
-/// # config.redis_namespace = "doc_tests_for_boot_worker_macro".to_string();
 /// # config.retry_count_limit = 1;
 /// # config.worker_count = 1;
+/// #
+/// let queue_init = RedisQueueInit::default();
+/// # let mut queue_init = RedisQueueInit::default();
+/// # queue_init.namespace = "doc_tests_for_boot_worker_macro".to_string();
 ///
 /// # if false {
-/// robin_boot_worker!(config);
+/// robin_boot_worker!(RedisQueue, config, queue_init);
 /// # }
 /// # }
 /// ```
 #[macro_export]
 macro_rules! robin_boot_worker {
-    ($config:expr) => (
-        robin::worker::boot(&$config.clone(), __robin_lookup_job);
+    ($ty:ty, $config:expr, $queue_init:expr) => (
+        robin::worker::boot::<$ty, _, _>(&$config.clone(), $queue_init.clone(), __robin_lookup_job);
     )
 }

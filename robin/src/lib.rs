@@ -1,6 +1,6 @@
-#![deny(missing_docs, unused_imports, missing_debug_implementations, missing_copy_implementations,
-        trivial_casts, trivial_numeric_casts, unsafe_code, unstable_features,
-        unused_import_braces, unused_qualifications)]
+// #![deny(missing_docs, unused_imports, missing_debug_implementations, missing_copy_implementations,
+//         trivial_casts, trivial_numeric_casts, unsafe_code, unstable_features,
+//         unused_import_braces, unused_qualifications)]
 #![doc(html_root_url = "https://docs.rs/robin/0.3.0")]
 
 //! # Robin
@@ -30,13 +30,14 @@
 //! #
 //! # fn try_main() -> Result<(), Box<Error>> {
 //! use robin::prelude::*;
+//! use robin::redis_queue::*;
 //!
 //! jobs! {
 //!     MyJob(JobArgs),
 //! }
 //!
 //! impl MyJob {
-//!     fn perform(args: JobArgs, _con: &WorkerConnection) -> JobResult {
+//!     fn perform<Q>(args: JobArgs, _con: &Connection<Q>) -> JobResult {
 //!         println!("Job performed with {:?}", args.value);
 //!         Ok(())
 //!     }
@@ -48,11 +49,15 @@
 //! }
 //!
 //! let config = Config::default();
+//! let queue_init = RedisQueueInit::default();
+//! #
 //! # let mut config = Config::default();
-//! # config.redis_namespace = "doc_tests_for_crate".to_string();
 //! # config.timeout = 1;
+//! #
+//! # let mut queue_init = RedisQueueInit::default();
+//! # queue_init.namespace = "doc_tests_for_crate".to_string();
 //!
-//! let con = robin_establish_connection!(config)?;
+//! let con = robin_establish_connection!(RedisQueue, config, queue_init)?;
 //! # con.delete_all();
 //!
 //! assert_eq!(con.main_queue_size()?, 0);
@@ -66,9 +71,13 @@
 //! assert_eq!(con.retry_queue_size()?, 0);
 //!
 //! # if true {
-//! # robin::worker::spawn_workers(&config.clone(), __robin_lookup_job).perform_all_jobs_and_die();
+//! # robin::worker::spawn_workers::<RedisQueue, _, _>(
+//! #     &config.clone(),
+//! #     queue_init.clone(),
+//! #     __robin_lookup_job,
+//! # ).perform_all_jobs_and_die();
 //! # } else {
-//! robin_boot_worker!(config);
+//! robin_boot_worker!(RedisQueue, config, queue_init);
 //! # }
 //!
 //! assert_eq!(con.main_queue_size()?, 0);
@@ -129,8 +138,10 @@ pub mod config;
 
 pub mod macros;
 
+/// Contains the different types of queue backends supplied by Robin.
+pub mod queue_adapters;
+
 mod ticker;
-mod queue_adapters;
 
 pub mod prelude {
     //! Reexports the most commonly used types and traits from the other modules.
@@ -138,7 +149,12 @@ pub mod prelude {
 
     pub use job::{Args, Job, JobName, JobResult, PerformJob};
     pub use error::RobinResult;
-    pub use connection::{establish, LookupJob, WorkerConnection};
+    pub use connection::{establish, Connection, LookupJob};
+    pub use queue_adapters::JobQueue;
     pub use worker::{boot, spawn_workers};
     pub use config::Config;
+}
+
+pub mod redis_queue {
+    pub use queue_adapters::redis_queue::{RedisQueue, RedisQueueInit};
 }

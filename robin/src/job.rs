@@ -1,8 +1,8 @@
 extern crate serde_json;
 
 use serde::{Deserialize, Serialize};
-use connection::WorkerConnection;
-use queue_adapters::{QueueIdentifier, RetryCount};
+use connection::Connection;
+use queue_adapters::{JobQueue, QueueIdentifier, RetryCount};
 use error::{Error, RobinResult};
 use std;
 
@@ -45,35 +45,37 @@ impl Args {
 ///
 /// **NOTE:** You normally wouldn't need to implement this. The [`jobs!`](../macro.jobs.html) macro
 /// will implement it for you.
-pub trait Job {
+pub trait Job<Q> {
     /// The name of the job. Required to put the job into Redis.
     fn name(&self) -> JobName;
 
     /// What the job actually does.
-    fn perform(&self, args: &Args, con: &WorkerConnection) -> JobResult;
+    fn perform(&self, args: &Args, con: &Connection<Q>) -> JobResult;
 }
 
 /// Trait for either performing immediately, or more commonly, later.
 /// This trait is automatically implemented for types that implement [`Job`](trait.Job.html)
 /// so you shouldn't ever need to implement this manually.
-pub trait PerformJob {
+pub trait PerformJob<Q, A> {
     /// Perform the job right now without blocking.
-    fn perform_now<A: Serialize>(&self, args: A, con: &WorkerConnection) -> RobinResult<()>;
+    fn perform_now(&self, args: A, con: &Connection<Q>) -> RobinResult<()>;
 
     /// Put the job into the queue for processing at a later point.
-    fn perform_later<A: Serialize>(&self, args: A, con: &WorkerConnection) -> RobinResult<()>;
+    fn perform_later(&self, args: A, con: &Connection<Q>) -> RobinResult<()>;
 }
 
-impl<T> PerformJob for T
+impl<T, Q, A> PerformJob<Q, A> for T
 where
-    T: Job,
+    Q: JobQueue,
+    T: Job<Q>,
+    A: Serialize,
 {
-    fn perform_now<A: Serialize>(&self, args: A, con: &WorkerConnection) -> RobinResult<()> {
+    fn perform_now(&self, args: A, con: &Connection<Q>) -> RobinResult<()> {
         self.perform(&serialize_arg(args)?, con)
             .map_err(|e| Error::JobFailed(e))
     }
 
-    fn perform_later<A: Serialize>(&self, args: A, con: &WorkerConnection) -> RobinResult<()> {
+    fn perform_later(&self, args: A, con: &Connection<Q>) -> RobinResult<()> {
         con.enqueue_to(
             QueueIdentifier::Main,
             self.name(),

@@ -4,6 +4,7 @@ extern crate robin;
 extern crate serde_derive;
 
 use robin::prelude::*;
+use robin::redis_queue::*;
 use std::env;
 
 fn main() {
@@ -20,11 +21,14 @@ fn main() {
 }
 
 fn worker(config: Config) {
-    robin_boot_worker!(&config);
+    let queue_init = RedisQueueInit::default();
+    robin_boot_worker!(RedisQueue, &config, queue_init);
 }
 
 fn client(config: Config) {
-    let con = robin_establish_connection!(config).expect("Failed to connect");
+    let queue_init = RedisQueueInit::default();
+    let con =
+        robin_establish_connection!(RedisQueue, config, queue_init).expect("Failed to connect");
 
     let n = 10;
 
@@ -39,7 +43,7 @@ jobs! {
 }
 
 impl MyJob {
-    fn perform(args: JobArgs, _con: &WorkerConnection) -> JobResult {
+    fn perform<Q>(args: JobArgs, _con: &Connection<Q>) -> JobResult {
         println!("Job performed with {:?}", args);
         Ok(())
     }

@@ -6,11 +6,13 @@ mod test_helpers;
 use test_helpers::*;
 
 use robin::prelude::*;
+use robin::redis_queue::*;
 
 robin_test!(performing_jobs, || {
     jobs! { TestJob(String) }
+
     impl TestJob {
-        fn perform(unique_string: String, _con: &WorkerConnection) -> JobResult {
+        fn perform<Q>(unique_string: String, _con: &Connection<Q>) -> JobResult {
             write_tmp_test_file(unique_string.clone(), unique_string);
             Ok(())
         }
@@ -19,25 +21,33 @@ robin_test!(performing_jobs, || {
     let filename = uuid();
 
     let config = test_config();
-    let con = robin_establish_connection!(config).unwrap();
+    let queue_init = test_redis_init();
+    let con = robin_establish_connection!(RedisQueue, config, queue_init).unwrap();
 
     TestJob::perform_later(&filename, &con).unwrap();
 
-    robin::worker::spawn_workers(&config.clone(), __robin_lookup_job).perform_all_jobs_and_die();
+    robin::worker::spawn_workers::<RedisQueue, _, _>(
+        &config.clone(),
+        queue_init.clone(),
+        __robin_lookup_job,
+    ).perform_all_jobs_and_die();
 
     assert_eq!(read_tmp_test_file(filename.clone()).unwrap(), filename);
 });
 
 robin_test!(main_queue_size_test, || {
     jobs! { TestJob(()) }
+
     impl TestJob {
-        fn perform(_args: (), _con: &WorkerConnection) -> JobResult {
+        fn perform<Q>(_args: (), _con: &Connection<Q>) -> JobResult {
             Ok(())
         }
     }
 
     let config = test_config();
-    let con = robin_establish_connection!(config).unwrap();
+    let queue_init = test_redis_init();
+    let con = robin_establish_connection!(RedisQueue, config, queue_init).unwrap();
+
     assert_eq!(con.main_queue_size().unwrap(), 0);
 
     let job_count = config.worker_count + 1;
@@ -46,26 +56,37 @@ robin_test!(main_queue_size_test, || {
     }
     assert_eq!(con.main_queue_size().unwrap(), job_count);
 
-    robin::worker::spawn_workers(&config.clone(), __robin_lookup_job).perform_all_jobs_and_die();
+    robin::worker::spawn_workers::<RedisQueue, _, _>(
+        &config.clone(),
+        queue_init.clone(),
+        __robin_lookup_job,
+    ).perform_all_jobs_and_die();
 
     assert_eq!(con.main_queue_size().unwrap(), 0);
 });
 
 robin_test!(retrying_jobs, || {
     jobs! { TestJob(()) }
+
     impl TestJob {
-        fn perform(_args: (), _con: &WorkerConnection) -> JobResult {
+        fn perform<Q>(_args: (), _con: &Connection<Q>) -> JobResult {
             TestError("fail").into_job_result()
         }
     }
 
     let config = test_config();
-    let con = robin_establish_connection!(config).unwrap();
+    let queue_init = test_redis_init();
+    let con = robin_establish_connection!(RedisQueue, config, queue_init).unwrap();
+
     assert_eq!(con.main_queue_size().unwrap(), 0);
 
     TestJob::perform_later(&(), &con).unwrap();
 
-    robin::worker::spawn_workers(&config.clone(), __robin_lookup_job).perform_all_jobs_and_die();
+    robin::worker::spawn_workers::<RedisQueue, _, _>(
+        &config.clone(),
+        queue_init.clone(),
+        __robin_lookup_job,
+    ).perform_all_jobs_and_die();
 
     assert_eq!(con.main_queue_size().unwrap(), 0);
     assert_eq!(con.retry_queue_size().unwrap(), 0);

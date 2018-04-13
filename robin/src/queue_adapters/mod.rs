@@ -5,6 +5,28 @@ use serde_json;
 use redis;
 use error::*;
 use config::Config;
+use std::marker::Sized;
+
+pub trait JobQueue
+where
+    Self: Sized,
+{
+    type Init;
+
+    fn new(init: &Self::Init) -> RobinResult<Self>;
+
+    fn enqueue(&self, enq_job: EnqueuedJob, iden: QueueIdentifier) -> RobinResult<()>;
+
+    fn dequeue(
+        &self,
+        timeout: &DequeueTimeout,
+        iden: QueueIdentifier,
+    ) -> Result<EnqueuedJob, NoJobDequeued>;
+
+    fn delete_all(&self, iden: QueueIdentifier) -> RobinResult<()>;
+
+    fn size(&self, iden: QueueIdentifier) -> RobinResult<usize>;
+}
 
 /// The number of times a job has been retried, if ever.
 #[derive(Deserialize, Serialize, Debug, Copy, Clone)]
