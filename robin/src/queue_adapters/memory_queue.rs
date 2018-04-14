@@ -1,27 +1,94 @@
 use error::*;
 use super::{EnqueuedJob, JobQueue, NoJobDequeued, QueueIdentifier};
-use std::{sync::{Mutex, mpsc::{channel, Receiver, Sender}}, time::Duration};
+use std::{sync::{Arc, Mutex, mpsc::{channel, Receiver, Sender}}, time::Duration};
 use std::default::Default;
 
 /// A queue backend the stores the jobs in-memory. Normally only used during testing.
 #[allow(missing_debug_implementations)]
 pub struct MemoryQueue {
-    send: Mutex<Sender<EnqueuedJob>>,
-    recv: Mutex<Receiver<EnqueuedJob>>,
-    config: Mutex<MemoryQueueConfig>,
+    config: MemoryQueueConfig,
 }
 
 /// The type used to configure an in-memory queue.
-#[derive(Clone, Debug, Copy)]
+#[derive(Debug)]
 pub struct MemoryQueueConfig {
-    /// The time duration the worker will block while waiting for a new job to be enqueued.
-    pub timeout: Duration,
+    timeout: Duration,
+    send: Arc<Mutex<Sender<EnqueuedJob>>>,
+    recv: Arc<Mutex<Receiver<EnqueuedJob>>>,
+}
+
+impl MemoryQueueConfig {
+    /// Create a new `MemoryQueueConfig`
+    pub fn new(timeout: Duration) -> MemoryQueueConfig {
+        let (send, recv) = channel();
+
+        MemoryQueueConfig {
+            timeout,
+            send: Arc::new(Mutex::new(send)),
+            recv: Arc::new(Mutex::new(recv)),
+        }
+    }
+}
+
+impl MemoryQueueConfig {
+    fn enqueue(&self, enq_job: EnqueuedJob, iden: QueueIdentifier) -> RobinResult<()> {
+        self.send.lock().unwrap().send(enq_job);
+        Ok(())
+    }
+
+    fn dequeue(&self, iden: QueueIdentifier) -> Result<EnqueuedJob, NoJobDequeued> {
+        self.recv
+            .lock()
+            .unwrap()
+            .recv_timeout(self.timeout)
+            .map_err(|_| NoJobDequeued::BecauseTimeout)
+    }
+
+    fn delete_all(&self, iden: QueueIdentifier) -> RobinResult<()> {
+        let recv = self.recv.lock().unwrap();
+        loop {
+            if let Err(_) = recv.try_recv() {
+                break;
+            }
+        }
+        Ok(())
+    }
+
+    fn size(&self, iden: QueueIdentifier) -> RobinResult<usize> {
+        let mut jobs = vec![];
+        let mut count = 0;
+
+        let recv = self.recv.lock().unwrap();
+        loop {
+            if let Ok(job) = recv.try_recv() {
+                count += 1;
+                jobs.push(job);
+            } else {
+                break;
+            }
+        }
+
+        let send = self.send.lock().unwrap();
+        for job in jobs {
+            send.send(job);
+        }
+
+        Ok(count)
+    }
 }
 
 impl Default for MemoryQueueConfig {
     fn default() -> MemoryQueueConfig {
+        MemoryQueueConfig::new(Duration::from_millis(100))
+    }
+}
+
+impl Clone for MemoryQueueConfig {
+    fn clone(&self) -> MemoryQueueConfig {
         MemoryQueueConfig {
-            timeout: Duration::from_secs(1),
+            timeout: self.timeout.clone(),
+            send: Arc::clone(&self.send),
+            recv: Arc::clone(&self.recv),
         }
     }
 }
@@ -30,22 +97,17 @@ impl JobQueue for MemoryQueue {
     type Config = MemoryQueueConfig;
 
     fn new(config: &MemoryQueueConfig) -> RobinResult<Self> {
-        let (send, recv) = channel();
-
         Ok(MemoryQueue {
-            send: Mutex::new(send),
-            recv: Mutex::new(recv),
-            config: Mutex::new(config.clone()),
+            config: config.clone(),
         })
     }
 
     fn enqueue(&self, enq_job: EnqueuedJob, iden: QueueIdentifier) -> RobinResult<()> {
-        self.send.lock().unwrap().send(enq_job);
-        Ok(())
+        self.config.enqueue(enq_job, iden)
     }
 
     fn dequeue(&self, iden: QueueIdentifier) -> Result<EnqueuedJob, NoJobDequeued> {
-        Ok(self.recv.lock().unwrap().recv().unwrap())
+        self.config.dequeue(iden)
     }
 
     /// Delete all jobs from the queue.
@@ -77,13 +139,7 @@ impl JobQueue for MemoryQueue {
     /// # }
     /// ```
     fn delete_all(&self, iden: QueueIdentifier) -> RobinResult<()> {
-        let recv = self.recv.lock().unwrap();
-        loop {
-            if let Err(_) = recv.try_recv() {
-                break;
-            }
-        }
-        Ok(())
+        self.config.delete_all(iden)
     }
 
     /// Get the number of jobs in the queue.
@@ -113,25 +169,7 @@ impl JobQueue for MemoryQueue {
     /// # }
     /// ```
     fn size(&self, iden: QueueIdentifier) -> RobinResult<usize> {
-        let mut jobs = vec![];
-        let mut count = 0;
-
-        let recv = self.recv.lock().unwrap();
-        loop {
-            if let Ok(job) = recv.try_recv() {
-                count += 1;
-                jobs.push(job);
-            } else {
-                break;
-            }
-        }
-
-        let send = self.send.lock().unwrap();
-        for job in jobs {
-            send.send(job);
-        }
-
-        Ok(count)
+        self.config.size(iden)
     }
 }
 

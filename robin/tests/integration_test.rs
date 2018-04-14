@@ -7,6 +7,7 @@ use test_helpers::*;
 
 use robin::prelude::*;
 use robin::redis_queue::*;
+use robin::memory_queue::*;
 
 robin_test!(performing_jobs, || {
     jobs! { TestJob(String) }
@@ -90,4 +91,36 @@ robin_test!(retrying_jobs, || {
 
     assert_eq!(con.main_queue_size().unwrap(), 0);
     assert_eq!(con.retry_queue_size().unwrap(), 0);
+});
+
+robin_test!(performing_with_in_memory_queue, || {
+    use std::time::Duration;
+
+    jobs! { TestJob(String) }
+
+    impl TestJob {
+        fn perform<Q>(unique_string: String, _con: &Connection<Q>) -> JobResult {
+            write_tmp_test_file(unique_string.clone(), unique_string);
+            Ok(())
+        }
+    }
+
+    let filename = uuid();
+
+    let config = test_config();
+
+    let queue_config = MemoryQueueConfig::default();
+
+    let con: Connection<MemoryQueue> =
+        robin::connection::establish(config, queue_config.clone(), __robin_lookup_job).unwrap();
+
+    TestJob::perform_later(&filename, &con).unwrap();
+
+    robin::worker::spawn_workers::<MemoryQueue, _, _>(
+        &config.clone(),
+        queue_config.clone(),
+        __robin_lookup_job,
+    ).perform_all_jobs_and_die();
+
+    assert_eq!(read_tmp_test_file(filename.clone()).unwrap(), filename);
 });

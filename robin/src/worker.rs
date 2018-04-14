@@ -133,7 +133,7 @@ fn worker_loop<Q, T, K>(
     let mut received_perform_jobs_and_die = false;
 
     loop {
-        let job = dequeue_job(&con, queue_iden);
+        let job = con.dequeue_from(queue_iden);
         let output = perform_job(job, &con);
 
         match output {
@@ -159,13 +159,6 @@ fn worker_loop<Q, T, K>(
 }
 
 type DequeuedJob<Q> = Result<(Box<Job<Q> + Send + 'static>, String, RetryCount), NoJobDequeued>;
-
-fn dequeue_job<Q>(con: &Connection<Q>, iden: QueueIdentifier) -> DequeuedJob<Q>
-where
-    Q: JobQueue,
-{
-    con.dequeue_from(iden)
-}
 
 #[derive(Debug)]
 enum PerformJobOutput {
