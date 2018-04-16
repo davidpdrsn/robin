@@ -21,6 +21,7 @@ for Rust libraries in [RFC #1105](https://github.com/rust-lang/rfcs/blob/master/
 - `WorkerConnection` has been renamed to `Connection`.
 - `Connection` is now generic over the type of jobs backend. See the docs for the minor change if you need to make to continue using Redis. In the future we will provide other job backends than Redis.
 - The value contained inside an `Error::UnknownJob` has been changed from a `String` to a `JobName`.
+- `Error::SerdeJsonError` has been renamed to `Error::SerdeError`.
 
 ### Deprecated
 

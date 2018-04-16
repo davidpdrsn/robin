@@ -8,6 +8,7 @@ pub mod memory_queue;
 use serde_json;
 use redis;
 use error::*;
+use std::{error, fmt};
 use config::Config;
 use std::marker::Sized;
 
@@ -20,19 +21,38 @@ where
     type Config;
 
     /// Create a new queue with the given config.
-    fn new(init: &Self::Config) -> RobinResult<Self>;
+    fn new(init: &Self::Config) -> JobQueueResult<Self>;
 
     /// Push a job into the queue.
-    fn enqueue(&self, enq_job: EnqueuedJob, iden: QueueIdentifier) -> RobinResult<()>;
+    fn enqueue(&self, enq_job: EnqueuedJob, iden: QueueIdentifier) -> JobQueueResult<()>;
 
     /// Pull a job from the queue.
     fn dequeue(&self, iden: QueueIdentifier) -> Result<EnqueuedJob, NoJobDequeued>;
 
     /// Delete all jobs from the queue.
-    fn delete_all(&self, iden: QueueIdentifier) -> RobinResult<()>;
+    fn delete_all(&self, iden: QueueIdentifier) -> JobQueueResult<()>;
 
     /// Get the number of jobs in the queue.
-    fn size(&self, iden: QueueIdentifier) -> RobinResult<usize>;
+    fn size(&self, iden: QueueIdentifier) -> JobQueueResult<usize>;
+}
+
+/// The result type returned by job backends.
+pub type JobQueueResult<T> = Result<T, JobQueueError>;
+
+/// The error type used by `JobQueue` implementation.
+#[derive(Debug)]
+pub struct JobQueueError(Box<error::Error>);
+
+impl fmt::Display for JobQueueError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{:?}", self)
+    }
+}
+
+impl error::Error for JobQueueError {
+    fn description(&self) -> &str {
+        self.0.description()
+    }
 }
 
 /// The number of times a job has been retried, if ever.

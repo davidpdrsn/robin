@@ -1,6 +1,7 @@
+#![allow(unused_imports)]
 use error::*;
-use super::{EnqueuedJob, JobQueue, NoJobDequeued, QueueIdentifier};
-use std::{sync::{Arc, Mutex, mpsc::{channel, Receiver, Sender}}, time::Duration};
+use super::{EnqueuedJob, JobQueue, JobQueueError, JobQueueResult, NoJobDequeued, QueueIdentifier};
+use std::{sync::{Arc, Mutex, mpsc::{channel, Receiver, SendError, Sender}}, time::Duration};
 use std::default::Default;
 
 /// A queue backend the stores the jobs in-memory. Normally only used during testing.
@@ -31,21 +32,21 @@ impl MemoryQueueConfig {
 }
 
 impl MemoryQueueConfig {
-    fn enqueue(&self, enq_job: EnqueuedJob, iden: QueueIdentifier) -> RobinResult<()> {
-        self.send.lock().unwrap().send(enq_job).unwrap();
+    fn enqueue(&self, enq_job: EnqueuedJob, iden: QueueIdentifier) -> JobQueueResult<()> {
+        self.send.lock().expect("mutex was poisoned").send(enq_job)?;
         Ok(())
     }
 
     fn dequeue(&self, iden: QueueIdentifier) -> Result<EnqueuedJob, NoJobDequeued> {
         self.recv
             .lock()
-            .unwrap()
+            .expect("mutex was poisoned")
             .recv_timeout(self.timeout)
             .map_err(|_| NoJobDequeued::BecauseTimeout)
     }
 
-    fn delete_all(&self, iden: QueueIdentifier) -> RobinResult<()> {
-        let recv = self.recv.lock().unwrap();
+    fn delete_all(&self, iden: QueueIdentifier) -> JobQueueResult<()> {
+        let recv = self.recv.lock().expect("mutex was poisoned");
         loop {
             if let Err(_) = recv.try_recv() {
                 break;
@@ -54,11 +55,11 @@ impl MemoryQueueConfig {
         Ok(())
     }
 
-    fn size(&self, iden: QueueIdentifier) -> RobinResult<usize> {
+    fn size(&self, iden: QueueIdentifier) -> JobQueueResult<usize> {
         let mut jobs = vec![];
         let mut count = 0;
 
-        let recv = self.recv.lock().unwrap();
+        let recv = self.recv.lock().expect("mutex was poisoned");
         loop {
             if let Ok(job) = recv.try_recv() {
                 count += 1;
@@ -68,7 +69,7 @@ impl MemoryQueueConfig {
             }
         }
 
-        let send = self.send.lock().unwrap();
+        let send = self.send.lock().expect("mutex was poisoned");
         for job in jobs {
             send.send(job);
         }
@@ -96,13 +97,13 @@ impl Clone for MemoryQueueConfig {
 impl JobQueue for MemoryQueue {
     type Config = MemoryQueueConfig;
 
-    fn new(config: &MemoryQueueConfig) -> RobinResult<Self> {
+    fn new(config: &MemoryQueueConfig) -> JobQueueResult<Self> {
         Ok(MemoryQueue {
             config: config.clone(),
         })
     }
 
-    fn enqueue(&self, enq_job: EnqueuedJob, iden: QueueIdentifier) -> RobinResult<()> {
+    fn enqueue(&self, enq_job: EnqueuedJob, iden: QueueIdentifier) -> JobQueueResult<()> {
         self.config.enqueue(enq_job, iden)
     }
 
@@ -138,7 +139,7 @@ impl JobQueue for MemoryQueue {
     /// # Ok(())
     /// # }
     /// ```
-    fn delete_all(&self, iden: QueueIdentifier) -> RobinResult<()> {
+    fn delete_all(&self, iden: QueueIdentifier) -> JobQueueResult<()> {
         self.config.delete_all(iden)
     }
 
@@ -168,10 +169,16 @@ impl JobQueue for MemoryQueue {
     /// # Ok(())
     /// # }
     /// ```
-    fn size(&self, iden: QueueIdentifier) -> RobinResult<usize> {
+    fn size(&self, iden: QueueIdentifier) -> JobQueueResult<usize> {
         self.config.size(iden)
     }
 }
 
 test_type_impls!(memory_queue_impls_send, MemoryQueue, Send);
 test_type_impls!(memory_queue_impls_sync, MemoryQueue, Sync);
+
+impl From<SendError<EnqueuedJob>> for JobQueueError {
+    fn from(error: SendError<EnqueuedJob>) -> JobQueueError {
+        JobQueueError(Box::new(error))
+    }
+}

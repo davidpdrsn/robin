@@ -23,11 +23,13 @@ where
     L: 'static + LookupJob<Q>,
     Q: JobQueue<Config = K>,
 {
-    JobQueue::new(&queue_config).map(|queue| Connection {
-        queue: queue,
-        config: config,
-        lookup_job: Box::new(lookup_job),
-    })
+    JobQueue::new(&queue_config)
+        .map(|queue| Connection {
+            queue: queue,
+            config: config,
+            lookup_job: Box::new(lookup_job),
+        })
+        .map_err(Error::from)
 }
 
 /// The connection to the queue backend. Required to enqueue and dequeue jobs.
@@ -67,9 +69,9 @@ where
         match iden {
             QueueIdentifier::Main => {
                 debug!("Enqueued \"{}\" with {}", name.0, args.json());
-                self.queue.enqueue(enq_job, iden)
+                self.queue.enqueue(enq_job, iden).map_err(Error::from)
             }
-            QueueIdentifier::Retry => self.queue.enqueue(enq_job, iden),
+            QueueIdentifier::Retry => self.queue.enqueue(enq_job, iden).map_err(Error::from),
         }
     }
 
@@ -105,22 +107,25 @@ where
 
     /// The number of jobs in the queue
     pub fn size(&self, iden: QueueIdentifier) -> RobinResult<usize> {
-        self.queue.size(iden)
+        self.queue.size(iden).map_err(Error::from)
     }
 
     /// The number of jobs in the main queue
     pub fn main_queue_size(&self) -> RobinResult<usize> {
-        self.size(QueueIdentifier::Main)
+        self.size(QueueIdentifier::Main).map_err(Error::from)
     }
 
     /// The number of jobs in the retry queue
     pub fn retry_queue_size(&self) -> RobinResult<usize> {
-        self.size(QueueIdentifier::Retry)
+        self.size(QueueIdentifier::Retry).map_err(Error::from)
     }
 
     /// `true` if there are 0 jobs in the queue, `false` otherwise
     pub fn is_queue_empty(&self, iden: QueueIdentifier) -> RobinResult<bool> {
-        self.queue.size(iden).map(|size| size == 0)
+        self.queue
+            .size(iden)
+            .map_err(Error::from)
+            .map(|size| size == 0)
     }
 
     fn lookup_job(&self, name: &JobName) -> Option<Box<Job<Q> + Send>> {

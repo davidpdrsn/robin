@@ -1,6 +1,6 @@
 use error::*;
 use serde_json;
-use super::{EnqueuedJob, JobQueue, NoJobDequeued, QueueIdentifier};
+use super::{EnqueuedJob, JobQueue, JobQueueError, JobQueueResult, NoJobDequeued, QueueIdentifier};
 use std::fmt;
 
 use std::default::Default;
@@ -51,7 +51,7 @@ impl JobQueue for RedisQueue {
     type Config = RedisConfig;
 
     /// Create a new `RedisQueue` using the given config
-    fn new(init: &RedisConfig) -> RobinResult<Self> {
+    fn new(init: &RedisConfig) -> JobQueueResult<Self> {
         let client = Client::open(init.url.as_ref())?;
 
         let con = client.get_connection()?;
@@ -65,7 +65,7 @@ impl JobQueue for RedisQueue {
     }
 
     /// Put a job into a queue
-    fn enqueue(&self, enq_job: EnqueuedJob, iden: QueueIdentifier) -> RobinResult<()> {
+    fn enqueue(&self, enq_job: EnqueuedJob, iden: QueueIdentifier) -> JobQueueResult<()> {
         let data: String = json!(enq_job).to_string();
         let _: () = self.redis.rpush(&self.key(iden), data)?;
 
@@ -93,14 +93,14 @@ impl JobQueue for RedisQueue {
     }
 
     /// Delete everything in the queue.
-    fn delete_all(&self, iden: QueueIdentifier) -> RobinResult<()> {
+    fn delete_all(&self, iden: QueueIdentifier) -> JobQueueResult<()> {
         let _: () = self.redis.del(&self.key(iden))?;
         Ok(())
     }
 
     /// The number of jobs in the queue.
-    fn size(&self, iden: QueueIdentifier) -> RobinResult<usize> {
-        let size: usize = self.redis.llen(&self.key(iden)).map_err(Error::from)?;
+    fn size(&self, iden: QueueIdentifier) -> JobQueueResult<usize> {
+        let size: usize = self.redis.llen(&self.key(iden))?;
         Ok(size)
     }
 }
@@ -112,5 +112,11 @@ impl fmt::Debug for RedisQueue {
             "RedisQueue {{ key: {:?}, redis_url: {:?} }}",
             self.key, self.redis_url
         )
+    }
+}
+
+impl From<redis::RedisError> for JobQueueError {
+    fn from(error: redis::RedisError) -> JobQueueError {
+        JobQueueError(Box::new(error))
     }
 }

@@ -30,13 +30,13 @@ impl Args {
     /// Generic function for deserializing the encoded arguments into the type
     /// required by the job.
     ///
-    /// Will return `Err(Error::SerdeJsonError(_))` if deserialization fails.
+    /// Will return `Err(Error::SerdeError(_))` if deserialization fails.
     /// This will most likely happen if a given job doesn't support the arguments type you're
     /// trying to deserialize into.
     pub fn deserialize<'a, T: Deserialize<'a>>(&'a self) -> RobinResult<T> {
         match serde_json::from_str(&self.json) {
             Ok(v) => Ok(v),
-            Err(e) => Err(Error::SerdeJsonError(e)),
+            Err(e) => Err(Error::SerdeError(e)),
         }
     }
 }

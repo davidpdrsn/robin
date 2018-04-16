@@ -1,7 +1,8 @@
 use serde_json;
 use redis;
-use std::{self, fmt};
+use std::{error, fmt};
 use job::JobName;
+use queue_adapters::JobQueueError;
 
 /// The result type used throughout Robin.
 pub type RobinResult<T> = Result<T, Error>;
@@ -13,10 +14,13 @@ pub enum Error {
     UnknownJob(JobName),
 
     /// The job failed to perform and might be retried.
-    JobFailed(Box<std::error::Error>),
+    JobFailed(Box<error::Error>),
+
+    /// The job failed to perform and might be retried.
+    JobQueueError(JobQueueError),
 
     /// Some serialization/deserialization failed
-    SerdeJsonError(serde_json::Error),
+    SerdeError(serde_json::Error),
 
     /// Something related to Redis failed.
     RedisError(redis::RedisError),
@@ -31,12 +35,13 @@ impl fmt::Display for Error {
     }
 }
 
-impl std::error::Error for Error {
+impl error::Error for Error {
     fn description(&self) -> &str {
         match self {
             &Error::UnknownJob(ref name) => &name.0,
             &Error::JobFailed(ref err) => err.description(),
-            &Error::SerdeJsonError(ref err) => err.description(),
+            &Error::JobQueueError(ref err) => err.description(),
+            &Error::SerdeError(ref err) => err.description(),
             &Error::RedisError(ref err) => err.description(),
             &Error::UnknownRedisError(ref msg) => msg,
         }
@@ -45,12 +50,18 @@ impl std::error::Error for Error {
 
 impl From<serde_json::Error> for Error {
     fn from(error: serde_json::Error) -> Error {
-        Error::SerdeJsonError(error)
+        Error::SerdeError(error)
     }
 }
 
 impl From<redis::RedisError> for Error {
     fn from(error: redis::RedisError) -> Error {
         Error::RedisError(error)
+    }
+}
+
+impl From<JobQueueError> for Error {
+    fn from(error: JobQueueError) -> Error {
+        Error::JobQueueError(error)
     }
 }
