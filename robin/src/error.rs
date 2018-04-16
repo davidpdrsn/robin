@@ -1,6 +1,7 @@
 use serde_json;
 use redis;
 use std::{self, fmt};
+use job::JobName;
 
 /// The result type used throughout Robin.
 pub type RobinResult<T> = Result<T, Error>;
@@ -9,7 +10,7 @@ pub type RobinResult<T> = Result<T, Error>;
 #[derive(Debug)]
 pub enum Error {
     /// The job we got from the queue isn't known.
-    UnknownJob(String),
+    UnknownJob(JobName),
 
     /// The job failed to perform and might be retried.
     JobFailed(Box<std::error::Error>),
@@ -33,7 +34,7 @@ impl fmt::Display for Error {
 impl std::error::Error for Error {
     fn description(&self) -> &str {
         match self {
-            &Error::UnknownJob(ref name) => name,
+            &Error::UnknownJob(ref name) => &name.0,
             &Error::JobFailed(ref err) => err.description(),
             &Error::SerdeJsonError(ref err) => err.description(),
             &Error::RedisError(ref err) => err.description(),

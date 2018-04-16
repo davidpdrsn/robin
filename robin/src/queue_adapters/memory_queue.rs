@@ -32,7 +32,7 @@ impl MemoryQueueConfig {
 
 impl MemoryQueueConfig {
     fn enqueue(&self, enq_job: EnqueuedJob, iden: QueueIdentifier) -> RobinResult<()> {
-        self.send.lock().unwrap().send(enq_job);
+        self.send.lock().unwrap().send(enq_job).unwrap();
         Ok(())
     }
 
