@@ -18,6 +18,9 @@ for Rust libraries in [RFC #1105](https://github.com/rust-lang/rfcs/blob/master/
 - Make the `connections::queue_adapters` module private. There is no reason for users to depend on this.
 - We now use the [log crate](https://crates.io/crates/log) for all logging.
 - We now spawn a dedicated worker that only operates on the retry queue. That means if `config.worker_count` is 10 you'll actually get 11 workers.
+- `WorkerConnection` has been renamed to `Connection`.
+- `Connection` is now generic over the type of jobs backend. See the docs for the minor change if you need to make to continue using Redis. In the future we will provide other job backends than Redis.
+- The value contained inside an `Error::UnknownJob` has been changed from a `String` to a `JobName`.
 
 ### Deprecated
 
