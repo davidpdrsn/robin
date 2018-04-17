@@ -9,24 +9,24 @@ for Rust libraries in [RFC #1105](https://github.com/rust-lang/rfcs/blob/master/
 ### Added
 
 - Added `worker::spawn_workers` which is useful during testing. See the docs for more info.
+- Add trait `JobQueueErrorInformation`. The errors returned from job queues will implement this trait, and provide a bit more information about exactly what happened.
 
 ### Changed
 
-- Remove `#[derive(Job)]`. Turns out `job!` was able to generate all the cod we needed.
 - Change `jobs!` to also require the argument type that your job expects. This mean you'll no longer be able to enqueue your jobs with the wrong type of arguments.
 - Remove the export of `serde::Serialize` from `prelude` since it is no longer necessary due to [#50](https://github.com/davidpdrsn/robin/pull/50).
-- Make the `connections::queue_adapters` module private. There is no reason for users to depend on this.
 - We now use the [log crate](https://crates.io/crates/log) for all logging.
 - We now spawn a dedicated worker that only operates on the retry queue. That means if `config.worker_count` is 10 you'll actually get 11 workers.
 - `WorkerConnection` has been renamed to `Connection`.
 - `Connection` is now generic over the type of jobs backend. See the docs for the minor change if you need to make to continue using Redis. In the future we will provide other job backends than Redis.
 - The value contained inside an `Error::UnknownJob` has been changed from a `String` to a `JobName`.
 - `Error::SerdeJsonError` has been renamed to `Error::SerdeError`.
+
+### Removed
+
+- Remove `#[derive(Job)]`. Turns out `job!` was able to generate all the cod we needed.
 - The variants `Error::UnknownRedisError` and `Error::RedisError` has been removed. They are replaced with `JobQueueError` and `JobQueueErrorInformation`.
-
-### Deprecated
-
-N/A
+- Make the `connections::queue_adapters` module private. There is no reason for users to depend on this.
 
 ### Fixed
 
@@ -45,7 +45,7 @@ N/A
 
 - `Config.worker_count` will now default to number of CPUs.
 
-### Deprecated
+### Removed
 
 N/A
 
@@ -66,7 +66,7 @@ N/A
 - Functions that previously took the connection in the first place, and job arguments in the second place now take the connection in the last place. That was mainly `perform_now` and `perform_later`.
 - The error type in `JobResult` has been changed from `String` to `Box<std::error::Error>`. Allows clients to keep using their own error types without having to map errors to strings all the time.
 
-### Deprecated
+### Removed
 
 N/A
 
