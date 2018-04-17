@@ -1,10 +1,11 @@
 use error::*;
 use serde_json;
-use super::{EnqueuedJob, JobQueue, JobQueueError, JobQueueResult, NoJobDequeued, QueueIdentifier};
+use super::*;
 use std::fmt;
-
+use std::error::Error;
 use std::default::Default;
 use redis;
+use redis::RedisError;
 use redis::{Client, Commands};
 
 /// A queue backend the persists the jobs in Redis.
@@ -52,9 +53,11 @@ impl JobQueue for RedisQueue {
 
     /// Create a new `RedisQueue` using the given config
     fn new(init: &RedisConfig) -> JobQueueResult<Self> {
-        let client = Client::open(init.url.as_ref())?;
+        let client = Client::open(init.url.as_ref()).map_err(|e| (e, ErrorOrigin::Initialization))?;
 
-        let con = client.get_connection()?;
+        let con = client
+            .get_connection()
+            .map_err(|e| (e, ErrorOrigin::Initialization))?;
 
         Ok(RedisQueue {
             redis: con,
@@ -67,7 +70,9 @@ impl JobQueue for RedisQueue {
     /// Put a job into a queue
     fn enqueue(&self, enq_job: EnqueuedJob, iden: QueueIdentifier) -> JobQueueResult<()> {
         let data: String = json!(enq_job).to_string();
-        let _: () = self.redis.rpush(&self.key(iden), data)?;
+        let _: () = self.redis
+            .rpush(&self.key(iden), data)
+            .map_err(|e| (e, ErrorOrigin::Enqueue))?;
 
         Ok(())
     }
@@ -75,32 +80,37 @@ impl JobQueue for RedisQueue {
     /// Pull a job out of the queue. This will block for `timeout` seconds if the queue is empty.
     fn dequeue(&self, iden: QueueIdentifier) -> Result<EnqueuedJob, NoJobDequeued> {
         let timeout_in_seconds = self.timeout;
-        let bulk: Vec<redis::Value> = self.redis.blpop(&self.key(iden), timeout_in_seconds)?;
+        let bulk: Vec<redis::Value> = self.redis
+            .blpop(&self.key(iden), timeout_in_seconds)
+            .map_err(|e| NoJobDequeued::from((e, ErrorOrigin::Dequeue)))?;
 
         match bulk.get(1) {
             Some(&redis::Value::Data(ref data)) => {
                 let data =
                     String::from_utf8(data.to_vec()).expect("Didn't get valid UTF-8 from Redis");
-                serde_json::from_str(&data).map_err(NoJobDequeued::from)
+                serde_json::from_str(&data)
+                    .map_err(|e| NoJobDequeued::from((e, ErrorOrigin::Dequeue)))
             }
 
             None => Err(NoJobDequeued::BecauseTimeout),
 
-            _ => Err(NoJobDequeued::from(Error::UnknownRedisError(
-                "List didn't contain what we were expecting".to_string(),
-            ))),
+            _ => panic!("TODO"),
         }
     }
 
     /// Delete everything in the queue.
     fn delete_all(&self, iden: QueueIdentifier) -> JobQueueResult<()> {
-        let _: () = self.redis.del(&self.key(iden))?;
+        let _: () = self.redis
+            .del(&self.key(iden))
+            .map_err(|e| (e, ErrorOrigin::DeleteAll))?;
         Ok(())
     }
 
     /// The number of jobs in the queue.
     fn size(&self, iden: QueueIdentifier) -> JobQueueResult<usize> {
-        let size: usize = self.redis.llen(&self.key(iden))?;
+        let size: usize = self.redis
+            .llen(&self.key(iden))
+            .map_err(|e| (e, ErrorOrigin::Size))?;
         Ok(size)
     }
 }
@@ -112,11 +122,5 @@ impl fmt::Debug for RedisQueue {
             "RedisQueue {{ key: {:?}, redis_url: {:?} }}",
             self.key, self.redis_url
         )
-    }
-}
-
-impl From<redis::RedisError> for JobQueueError {
-    fn from(error: redis::RedisError) -> JobQueueError {
-        JobQueueError(Box::new(error))
     }
 }

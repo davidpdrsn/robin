@@ -8,7 +8,8 @@ pub mod memory_queue;
 use serde_json;
 use redis;
 use error::*;
-use std::{error, fmt};
+use job::JobName;
+use std::{error, fmt::{self, Debug}};
 use config::Config;
 use std::marker::Sized;
 
@@ -40,19 +41,77 @@ where
 pub type JobQueueResult<T> = Result<T, JobQueueError>;
 
 /// The error type used by `JobQueue` implementation.
-#[derive(Debug)]
-pub struct JobQueueError(Box<error::Error>);
+pub type JobQueueError = Box<JobQueueErrorInformation>;
 
-impl fmt::Display for JobQueueError {
+/// Information about an error that happened in a queue backend.
+pub trait JobQueueErrorInformation: Debug {
+    /// The primary human-readable error message. Typically one line.
+    fn description(&self) -> &str;
+
+    /// An optional secondary error message providing more details about the
+    /// problem, if it was provided by the database. Might span multiple lines.
+    fn details(&self) -> Option<&str> {
+        None
+    }
+
+    /// The underlaying error that caused the problem.
+    fn underlaying_error(&self) -> &error::Error;
+
+    /// The place the error originated.
+    fn origin(&self) -> ErrorOrigin;
+}
+
+impl<E> JobQueueErrorInformation for (E, ErrorOrigin)
+where
+    E: error::Error,
+{
+    fn description(&self) -> &str {
+        self.0.description()
+    }
+
+    fn details(&self) -> Option<&str> {
+        None
+    }
+
+    fn underlaying_error(&self) -> &error::Error {
+        &self.0
+    }
+
+    fn origin(&self) -> ErrorOrigin {
+        self.1
+    }
+}
+
+impl<T> From<T> for Box<JobQueueErrorInformation>
+where
+    T: 'static + JobQueueErrorInformation,
+{
+    fn from(value: T) -> Box<JobQueueErrorInformation> {
+        Box::new(value)
+    }
+}
+
+impl fmt::Display for JobQueueErrorInformation {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{:?}", self)
     }
 }
 
-impl error::Error for JobQueueError {
+impl error::Error for JobQueueErrorInformation {
     fn description(&self) -> &str {
-        self.0.description()
+        self.description()
     }
+}
+
+/// The places where errors can originate in job queues.
+/// These should correspond 1-to-1 with the methods.
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
+pub enum ErrorOrigin {
+    Initialization,
+    Enqueue,
+    Dequeue,
+    DeleteAll,
+    Size,
 }
 
 /// The number of times a job has been retried, if ever.
@@ -124,24 +183,15 @@ pub enum NoJobDequeued {
     BecauseTimeout,
 
     /// Because there some error.
-    BecauseError(Error),
+    BecauseError(JobQueueError),
+
+    /// The job name wasn't known by the lookup function.
+    BecauseUnknownJob(JobName),
 }
 
-impl From<redis::RedisError> for NoJobDequeued {
-    fn from(error: redis::RedisError) -> NoJobDequeued {
-        NoJobDequeued::BecauseError(Error::from(error))
-    }
-}
-
-impl From<serde_json::Error> for NoJobDequeued {
-    fn from(error: serde_json::Error) -> NoJobDequeued {
-        NoJobDequeued::BecauseError(Error::from(error))
-    }
-}
-
-impl From<Error> for NoJobDequeued {
-    fn from(error: Error) -> NoJobDequeued {
-        NoJobDequeued::BecauseError(error)
+impl<T: 'static + JobQueueErrorInformation> From<T> for NoJobDequeued {
+    fn from(e: T) -> NoJobDequeued {
+        NoJobDequeued::BecauseError(Box::new(e))
     }
 }
 

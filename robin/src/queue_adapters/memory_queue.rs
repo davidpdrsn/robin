@@ -1,6 +1,6 @@
 #![allow(unused_imports)]
 use error::*;
-use super::{EnqueuedJob, JobQueue, JobQueueError, JobQueueResult, NoJobDequeued, QueueIdentifier};
+use super::*;
 use std::{sync::{Arc, Mutex, mpsc::{channel, Receiver, SendError, Sender}}, time::Duration};
 use std::default::Default;
 
@@ -33,7 +33,11 @@ impl MemoryQueueConfig {
 
 impl MemoryQueueConfig {
     fn enqueue(&self, enq_job: EnqueuedJob, iden: QueueIdentifier) -> JobQueueResult<()> {
-        self.send.lock().expect("mutex was poisoned").send(enq_job)?;
+        self.send
+            .lock()
+            .expect("mutex was poisoned")
+            .send(enq_job)
+            .map_err(|e| (e, ErrorOrigin::Enqueue))?;
         Ok(())
     }
 
@@ -117,13 +121,13 @@ impl JobQueue for MemoryQueue {
     /// # extern crate robin;
     /// # use robin::prelude::*;
     /// use robin::memory_queue::*;
-    /// use robin::queue_adapters::{EnqueuedJob, QueueIdentifier, RetryCount};
+    /// use robin::queue_adapters::{JobQueueResult, EnqueuedJob, QueueIdentifier, RetryCount};
     ///
     /// # use std::error::Error;
     /// # fn main() {
     /// # try_main().unwrap();
     /// # }
-    /// # fn try_main() -> Result<(), Box<Error>> {
+    /// # fn try_main() -> JobQueueResult<()> {
     /// #
     /// let config = MemoryQueueConfig::default();
     /// let q = MemoryQueue::new(&config)?;
@@ -149,13 +153,13 @@ impl JobQueue for MemoryQueue {
     /// # extern crate robin;
     /// # use robin::prelude::*;
     /// use robin::memory_queue::*;
-    /// use robin::queue_adapters::{EnqueuedJob, QueueIdentifier, RetryCount};
+    /// use robin::queue_adapters::{JobQueueResult, EnqueuedJob, QueueIdentifier, RetryCount};
     ///
     /// # use std::error::Error;
     /// # fn main() {
     /// # try_main().unwrap();
     /// # }
-    /// # fn try_main() -> Result<(), Box<Error>> {
+    /// # fn try_main() -> JobQueueResult<()> {
     /// #
     /// let config = MemoryQueueConfig::default();
     /// let q = MemoryQueue::new(&config)?;
@@ -176,9 +180,3 @@ impl JobQueue for MemoryQueue {
 
 test_type_impls!(memory_queue_impls_send, MemoryQueue, Send);
 test_type_impls!(memory_queue_impls_sync, MemoryQueue, Sync);
-
-impl From<SendError<EnqueuedJob>> for JobQueueError {
-    fn from(error: SendError<EnqueuedJob>) -> JobQueueError {
-        JobQueueError(Box::new(error))
-    }
-}

@@ -187,6 +187,10 @@ where
         Err(NoJobDequeued::BecauseError(err)) => {
             panic!(format!("Failed to dequeue job with error\n{:?}", err))
         }
+
+        Err(NoJobDequeued::BecauseUnknownJob(name)) => {
+            panic!(format!("Received unknown job from the queue\n{:?}", name.0))
+        }
     }
 }
 

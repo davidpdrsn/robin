@@ -91,8 +91,7 @@ where
         let name = enq_job.name().to_string();
 
         let job = self.lookup_job(&JobName::from(name.clone()))
-            .ok_or_else(move || Error::UnknownJob(JobName(name)))
-            .map_err(NoJobDequeued::from)?;
+            .ok_or_else(move || NoJobDequeued::BecauseUnknownJob(JobName(name)))?;
 
         Ok((job, args, enq_job.retry_count().clone()))
     }
