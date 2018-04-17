@@ -1,7 +1,5 @@
 use serde_json;
-use redis;
 use std::{error, fmt};
-use job::JobName;
 use queue_adapters::{JobQueueError, JobQueueErrorInformation};
 
 /// The result type used throughout Robin.

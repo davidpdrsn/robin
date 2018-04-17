@@ -1,6 +1,6 @@
-// #![deny(missing_docs, unused_imports, missing_debug_implementations, missing_copy_implementations,
-//         trivial_casts, trivial_numeric_casts, unsafe_code, unstable_features,
-//         unused_import_braces, unused_qualifications)]
+#![deny(missing_docs, unused_imports, missing_debug_implementations, missing_copy_implementations,
+        trivial_casts, trivial_numeric_casts, unsafe_code, unstable_features,
+        unused_import_braces, unused_qualifications)]
 #![doc(html_root_url = "https://docs.rs/robin/0.3.0")]
 
 //! # Robin

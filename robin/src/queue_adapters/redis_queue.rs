@@ -1,11 +1,8 @@
-use error::*;
 use serde_json;
 use super::*;
 use std::fmt;
-use std::error::Error;
 use std::default::Default;
 use redis;
-use redis::RedisError;
 use redis::{Client, Commands};
 
 /// A queue backend the persists the jobs in Redis.
@@ -115,7 +112,7 @@ impl JobQueue for RedisQueue {
     }
 }
 
-impl fmt::Debug for RedisQueue {
+impl Debug for RedisQueue {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
             f,

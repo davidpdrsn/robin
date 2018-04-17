@@ -5,9 +5,6 @@ pub mod redis_queue;
 /// and therefore wont work across processes. Normally you'd only use this during testing.
 pub mod memory_queue;
 
-use serde_json;
-use redis;
-use error::*;
 use job::JobName;
 use std::{error, fmt::{self, Debug}};
 use config::Config;
@@ -107,10 +104,19 @@ impl error::Error for JobQueueErrorInformation {
 /// These should correspond 1-to-1 with the methods.
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
 pub enum ErrorOrigin {
+    /// The error originated in the `new` method.
     Initialization,
+
+    /// The error originated in the `enqueue` method.
     Enqueue,
+
+    /// The error originated in the `dequeue` method.
     Dequeue,
+
+    /// The error originated in the `delete_all` method.
     DeleteAll,
+
+    /// The error originated in the `size` method.
     Size,
 }
 
