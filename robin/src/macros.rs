@@ -319,16 +319,14 @@ macro_rules! jobs {
 /// ```
 #[macro_export]
 macro_rules! robin_establish_connection {
-    ($ty:ty, $config:expr, $queue_config:expr) => (
-        {
-            let con: RobinResult<Connection<$ty>> = robin::connection::establish(
-                $config.clone(),
-                $queue_config.clone(),
-                __robin_lookup_job,
-            );
-            con
-        }
-    )
+    ($ty:ty, $config:expr, $queue_config:expr) => {{
+        let con: RobinResult<Connection<$ty>> = robin::connection::establish(
+            $config.clone(),
+            $queue_config.clone(),
+            __robin_lookup_job,
+        );
+        con
+    }};
 }
 
 /// Boots the worker which performs the jobs.
@@ -371,11 +369,11 @@ macro_rules! robin_establish_connection {
 /// ```
 #[macro_export]
 macro_rules! robin_boot_worker {
-    ($ty:ty, $config:expr, $queue_config:expr) => (
+    ($ty:ty, $config:expr, $queue_config:expr) => {
         robin::worker::boot::<$ty, _, _>(
             &$config.clone(),
             $queue_config.clone(),
             __robin_lookup_job,
         );
-    )
+    };
 }

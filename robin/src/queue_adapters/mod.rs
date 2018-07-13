@@ -5,10 +5,11 @@ pub mod redis_queue;
 /// and therefore wont work across processes. Normally you'd only use this during testing.
 pub mod memory_queue;
 
-use job::JobName;
-use std::{error, fmt::{self, Debug}};
 use config::Config;
+use job::JobName;
 use std::marker::Sized;
+use std::{error,
+          fmt::{self, Debug}};
 
 /// Trait that represents a backend that can be used to store jobs.
 pub trait JobQueue

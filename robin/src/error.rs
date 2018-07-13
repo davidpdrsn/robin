@@ -1,6 +1,6 @@
+use queue_adapters::{JobQueueError, JobQueueErrorInformation};
 use serde_json;
 use std::{error, fmt};
-use queue_adapters::{JobQueueError, JobQueueErrorInformation};
 
 /// The result type used throughout Robin.
 pub type RobinResult<T> = Result<T, Error>;

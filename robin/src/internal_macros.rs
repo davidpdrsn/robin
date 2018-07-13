@@ -76,24 +76,24 @@ macro_rules! p {
 #[doc(hidden)]
 #[macro_export]
 macro_rules! test_type_impls {
-    ( $name:ident, $type:ty, $trait:ty ) => {
+    ($name:ident, $type:ty, $trait:ty) => {
         #[allow(warnings)]
         fn $name() {
             let x: $type = unimplemented!();
             let _: &$trait = &x;
         }
-    }
+    };
 }
 
 #[doc(hidden)]
 #[macro_export]
 macro_rules! robin_test {
-    ( $name:ident, $body:expr ) => {
+    ($name:ident, $body:expr) => {
         #[test]
         fn $name() {
             setup();
             $body();
             teardown();
         }
-    }
+    };
 }

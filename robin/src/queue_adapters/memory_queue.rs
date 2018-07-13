@@ -1,8 +1,11 @@
 #![allow(unused_imports)]
-use error::*;
 use super::*;
-use std::{sync::{Arc, Mutex, mpsc::{channel, Receiver, SendError, Sender}}, time::Duration};
+use error::*;
 use std::default::Default;
+use std::{sync::{mpsc::{channel, Receiver, SendError, Sender},
+                 Arc,
+                 Mutex},
+          time::Duration};
 
 /// A queue backend the stores the jobs in-memory. Normally only used during testing.
 #[allow(missing_debug_implementations)]

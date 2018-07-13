@@ -1,5 +1,5 @@
-use std::default::Default;
 use num_cpus;
+use std::default::Default;
 
 /// Configuration options used throughout Robin.
 ///

@@ -1,9 +1,9 @@
-use serde_json;
 use super::*;
-use std::fmt;
-use std::default::Default;
 use redis;
 use redis::{Client, Commands};
+use serde_json;
+use std::default::Default;
+use std::fmt;
 
 /// A queue backend the persists the jobs in Redis.
 pub struct RedisQueue {

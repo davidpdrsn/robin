@@ -1,6 +1,8 @@
-#![deny(missing_docs, unused_imports, missing_debug_implementations, missing_copy_implementations,
-        trivial_casts, trivial_numeric_casts, unsafe_code, unstable_features,
-        unused_import_braces, unused_qualifications)]
+#![deny(
+    missing_docs, unused_imports, missing_debug_implementations, missing_copy_implementations,
+    trivial_casts, trivial_numeric_casts, unsafe_code, unstable_features, unused_import_braces,
+    unused_qualifications
+)]
 #![doc(html_root_url = "https://docs.rs/robin/0.3.0")]
 
 //! # Robin
@@ -145,12 +147,12 @@ pub mod prelude {
     //! Reexports the most commonly used types and traits from the other modules.
     //! As long as you're doing standard things this is the only `use` you'll need.
 
-    pub use job::{Args, Job, JobName, JobResult, PerformJob};
-    pub use error::RobinResult;
+    pub use config::Config;
     pub use connection::{establish, Connection, LookupJob};
+    pub use error::RobinResult;
+    pub use job::{Args, Job, JobName, JobResult, PerformJob};
     pub use queue_adapters::JobQueue;
     pub use worker::{boot, spawn_workers};
-    pub use config::Config;
 }
 
 /// Contains the types you'll need if you wish to use Redis as your backend.

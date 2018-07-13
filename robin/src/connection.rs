@@ -1,8 +1,8 @@
 use config::Config;
 use error::*;
 use job::*;
-use queue_adapters::{EnqueuedJob, JobQueue, NoJobDequeued, QueueIdentifier, RetryCount,
-                     redis_queue::RedisQueue};
+use queue_adapters::{redis_queue::RedisQueue, EnqueuedJob, JobQueue, NoJobDequeued,
+                     QueueIdentifier, RetryCount};
 
 /// Create a new connection.
 ///
