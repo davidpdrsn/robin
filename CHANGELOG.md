@@ -10,6 +10,7 @@ for Rust libraries in [RFC #1105](https://github.com/rust-lang/rfcs/blob/master/
 
 - Added `worker::spawn_workers` which is useful during testing. See the docs for more info.
 - Add trait `JobQueueErrorInformation`. The errors returned from job queues will implement this trait, and provide a bit more information about exactly what happened.
+- `Connection` now has `delete`, `size`, and `empty` methods for both the main and retry queues.
 
 ### Changed
 

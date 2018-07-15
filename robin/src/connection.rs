@@ -104,10 +104,22 @@ where
         Ok((job, args, enq_job.retry_count().clone()))
     }
 
+    /// Delete all jobs from main queue
+    pub fn delete_all_from_main(&self) -> RobinResult<()> {
+        self.main_queue.delete_all()?;
+        Ok(())
+    }
+
+    /// Delete all jobs from retry queue
+    pub fn delete_all_from_retry(&self) -> RobinResult<()> {
+        self.retry_queue.delete_all()?;
+        Ok(())
+    }
+
     /// Delete all jobs from all queues
     pub fn delete_all(&self) -> RobinResult<()> {
-        self.main_queue.delete_all()?;
-        self.retry_queue.delete_all()?;
+        self.delete_all_from_main()?;
+        self.delete_all_from_retry()?;
         Ok(())
     }
 
@@ -116,14 +128,22 @@ where
         self.size(QueueIdentifier::Main).map_err(Error::from)
     }
 
-    /// The number of jobs in the retry queue
+    /// The number of jobs in the main queue
     pub fn retry_queue_size(&self) -> RobinResult<usize> {
         self.size(QueueIdentifier::Retry).map_err(Error::from)
     }
 
-    /// `true` if there are 0 jobs in the queue, `false` otherwise
-    pub fn is_queue_empty(&self) -> RobinResult<bool> {
+    /// `true` if there are 0 jobs in the main queue, `false` otherwise
+    pub fn is_main_queue_empty(&self) -> RobinResult<bool> {
         self.main_queue
+            .size()
+            .map_err(Error::from)
+            .map(|size| size == 0)
+    }
+
+    /// `true` if there are 0 jobs in the retry queue, `false` otherwise
+    pub fn is_retry_queue_empty(&self) -> RobinResult<bool> {
+        self.retry_queue
             .size()
             .map_err(Error::from)
             .map(|size| size == 0)
