@@ -125,40 +125,38 @@ where
 
     /// The number of jobs in the main queue
     pub fn main_queue_size(&self) -> RobinResult<usize> {
-        self.size(QueueIdentifier::Main).map_err(Error::from)
+        self.size(QueueIdentifier::Main)
     }
 
     /// The number of jobs in the main queue
     pub fn retry_queue_size(&self) -> RobinResult<usize> {
-        self.size(QueueIdentifier::Retry).map_err(Error::from)
+        self.size(QueueIdentifier::Retry)
     }
 
     /// `true` if there are 0 jobs in the main queue, `false` otherwise
     pub fn is_main_queue_empty(&self) -> RobinResult<bool> {
-        self.main_queue
-            .size()
-            .map_err(Error::from)
-            .map(|size| size == 0)
+        self.is_empty(QueueIdentifier::Main)
     }
 
     /// `true` if there are 0 jobs in the retry queue, `false` otherwise
     pub fn is_retry_queue_empty(&self) -> RobinResult<bool> {
-        self.retry_queue
-            .size()
-            .map_err(Error::from)
-            .map(|size| size == 0)
+        self.is_empty(QueueIdentifier::Retry)
     }
 
     fn lookup_job(&self, name: &JobName) -> Option<Box<Job<Q> + Send>> {
         self.lookup_job.lookup(name)
     }
 
-    /// The number of jobs in the queue
+    fn is_empty(&self, iden: QueueIdentifier) -> RobinResult<bool> {
+        self.size(iden).map(|size| size == 0)
+    }
+
     fn size(&self, iden: QueueIdentifier) -> RobinResult<usize> {
         match iden {
-            QueueIdentifier::Main => self.main_queue.size(),
-            QueueIdentifier::Retry => self.retry_queue.size(),
-        }.map_err(Error::from)
+            QueueIdentifier::Main => &self.main_queue,
+            QueueIdentifier::Retry => &self.retry_queue,
+        }.size()
+            .map_err(Error::from)
     }
 }
 
