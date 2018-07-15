@@ -20,19 +20,19 @@ where
     type Config;
 
     /// Create a new queue with the given config.
-    fn new(init: &Self::Config) -> JobQueueResult<Self>;
+    fn new(init: &Self::Config) -> JobQueueResult<(Self, Self)>;
 
     /// Push a job into the queue.
-    fn enqueue(&self, enq_job: EnqueuedJob, iden: QueueIdentifier) -> JobQueueResult<()>;
+    fn enqueue(&self, enq_job: EnqueuedJob) -> JobQueueResult<()>;
 
     /// Pull a job from the queue.
-    fn dequeue(&self, iden: QueueIdentifier) -> Result<EnqueuedJob, NoJobDequeued>;
+    fn dequeue(&self) -> Result<EnqueuedJob, NoJobDequeued>;
 
     /// Delete all jobs from the queue.
-    fn delete_all(&self, iden: QueueIdentifier) -> JobQueueResult<()>;
+    fn delete_all(&self) -> JobQueueResult<()>;
 
     /// Get the number of jobs in the queue.
-    fn size(&self, iden: QueueIdentifier) -> JobQueueResult<usize>;
+    fn size(&self) -> JobQueueResult<usize>;
 }
 
 /// The result type returned by job backends.
@@ -47,7 +47,7 @@ pub trait JobQueueErrorInformation: Debug {
     fn description(&self) -> &str;
 
     /// An optional secondary error message providing more details about the
-    /// problem, if it was provided by the database. Might span multiple lines.
+    /// problem.
     fn details(&self) -> Option<&str> {
         None
     }
@@ -211,14 +211,4 @@ pub enum QueueIdentifier {
     /// If a job from the main queue fails it gets put into the retry queue
     /// and retried later.
     Retry,
-}
-
-impl QueueIdentifier {
-    /// Convert the name to the string used for the Redis key.
-    pub fn redis_queue_name(&self) -> String {
-        match *self {
-            QueueIdentifier::Main => "main".to_string(),
-            QueueIdentifier::Retry => "retry".to_string(),
-        }
-    }
 }

@@ -5,9 +5,9 @@ extern crate uuid;
 mod test_helpers;
 use test_helpers::*;
 
+use robin::memory_queue::*;
 use robin::prelude::*;
 use robin::redis_queue::*;
-use robin::memory_queue::*;
 
 robin_test!(performing_jobs, || {
     jobs! { TestJob(String) }

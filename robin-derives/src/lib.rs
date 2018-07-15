@@ -6,8 +6,8 @@ extern crate syn;
 mod each_variant;
 
 use proc_macro::TokenStream;
-use syn::*;
 use quote::Tokens;
+use syn::*;
 
 #[doc(hidden)]
 #[proc_macro_derive(EachVariant)]

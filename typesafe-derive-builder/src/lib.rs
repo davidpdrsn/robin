@@ -4,8 +4,8 @@ extern crate quote;
 extern crate rand;
 extern crate syn;
 
-use std::iter::repeat;
 use proc_macro::TokenStream;
+use std::iter::repeat;
 
 #[proc_macro_derive(Builder)]
 pub fn code_gen_builder(input: TokenStream) -> TokenStream {

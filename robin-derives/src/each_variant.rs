@@ -1,5 +1,5 @@
-use syn::*;
 use quote::Tokens;
+use syn::*;
 
 pub fn derive(input: DeriveInput) -> Tokens {
     let name: &Ident = &input.ident;

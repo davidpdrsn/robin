@@ -24,8 +24,9 @@ where
     Q: JobQueue<Config = K>,
 {
     JobQueue::new(&queue_config)
-        .map(|queue| Connection {
-            queue: queue,
+        .map(|(main_queue, retry_queue)| Connection {
+            main_queue: main_queue,
+            retry_queue: retry_queue,
             config: config,
             lookup_job: Box::new(lookup_job),
         })
@@ -36,7 +37,8 @@ where
 #[allow(missing_debug_implementations)]
 pub struct Connection<Q> {
     config: Config,
-    queue: Q,
+    main_queue: Q,
+    retry_queue: Q,
     lookup_job: Box<LookupJob<Q>>,
 }
 
@@ -69,9 +71,12 @@ where
         match iden {
             QueueIdentifier::Main => {
                 debug!("Enqueued \"{}\" with {}", name.0, args.json());
-                self.queue.enqueue(enq_job, iden).map_err(Error::from)
+                self.main_queue.enqueue(enq_job).map_err(Error::from)
             }
-            QueueIdentifier::Retry => self.queue.enqueue(enq_job, iden).map_err(Error::from),
+            QueueIdentifier::Retry => {
+                debug!("Re-enqueued \"{}\" with {}", name.0, args.json());
+                self.retry_queue.enqueue(enq_job).map_err(Error::from)
+            }
         }
     }
 
@@ -85,7 +90,10 @@ where
         &'a self,
         iden: QueueIdentifier,
     ) -> Result<(Box<Job<Q> + Send>, String, RetryCount), NoJobDequeued> {
-        let enq_job = self.queue.dequeue(iden)?;
+        let enq_job = match iden {
+            QueueIdentifier::Main => self.main_queue.dequeue(),
+            QueueIdentifier::Retry => self.retry_queue.dequeue(),
+        }?;
 
         let args = enq_job.args().to_string();
         let name = enq_job.name().to_string();
@@ -98,15 +106,9 @@ where
 
     /// Delete all jobs from all queues
     pub fn delete_all(&self) -> RobinResult<()> {
-        for iden in QueueIdentifier::all_variants() {
-            self.queue.delete_all(iden)?;
-        }
+        self.main_queue.delete_all()?;
+        self.retry_queue.delete_all()?;
         Ok(())
-    }
-
-    /// The number of jobs in the queue
-    pub fn size(&self, iden: QueueIdentifier) -> RobinResult<usize> {
-        self.queue.size(iden).map_err(Error::from)
     }
 
     /// The number of jobs in the main queue
@@ -120,15 +122,23 @@ where
     }
 
     /// `true` if there are 0 jobs in the queue, `false` otherwise
-    pub fn is_queue_empty(&self, iden: QueueIdentifier) -> RobinResult<bool> {
-        self.queue
-            .size(iden)
+    pub fn is_queue_empty(&self) -> RobinResult<bool> {
+        self.main_queue
+            .size()
             .map_err(Error::from)
             .map(|size| size == 0)
     }
 
     fn lookup_job(&self, name: &JobName) -> Option<Box<Job<Q> + Send>> {
         self.lookup_job.lookup(name)
+    }
+
+    /// The number of jobs in the queue
+    fn size(&self, iden: QueueIdentifier) -> RobinResult<usize> {
+        match iden {
+            QueueIdentifier::Main => self.main_queue.size(),
+            QueueIdentifier::Retry => self.retry_queue.size(),
+        }.map_err(Error::from)
     }
 }
 

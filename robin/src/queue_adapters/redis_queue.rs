@@ -4,18 +4,19 @@ use redis::{Client, Commands};
 use serde_json;
 use std::default::Default;
 use std::fmt;
+use std::sync::Arc;
 
 /// A queue backend the persists the jobs in Redis.
 pub struct RedisQueue {
-    redis: redis::Connection,
+    redis_con: Arc<redis::Connection>,
     redis_url: String,
     key: String,
     timeout: usize,
 }
 
 impl RedisQueue {
-    fn key(&self, iden: QueueIdentifier) -> String {
-        format!("{}_{}", self.key, iden.redis_queue_name())
+    fn key(&self) -> String {
+        self.key.clone()
     }
 }
 
@@ -49,36 +50,46 @@ impl JobQueue for RedisQueue {
     type Config = RedisConfig;
 
     /// Create a new `RedisQueue` using the given config
-    fn new(init: &RedisConfig) -> JobQueueResult<Self> {
+    fn new(init: &RedisConfig) -> JobQueueResult<(Self, Self)> {
         let client = Client::open(init.url.as_ref()).map_err(|e| (e, ErrorOrigin::Initialization))?;
 
         let con = client
             .get_connection()
             .map_err(|e| (e, ErrorOrigin::Initialization))?;
+        let con = Arc::new(con);
 
-        Ok(RedisQueue {
-            redis: con,
+        let main_q = RedisQueue {
+            redis_con: Arc::clone(&con),
             redis_url: init.url.to_string(),
-            key: init.namespace.to_string(),
+            key: format!("{}_{}", "main", init.namespace.to_string()),
             timeout: init.timeout,
-        })
+        };
+
+        let retry_q = RedisQueue {
+            redis_con: Arc::clone(&con),
+            redis_url: init.url.to_string(),
+            key: format!("{}_{}", "retry", init.namespace.to_string()),
+            timeout: init.timeout,
+        };
+
+        Ok((main_q, retry_q))
     }
 
     /// Put a job into a queue
-    fn enqueue(&self, enq_job: EnqueuedJob, iden: QueueIdentifier) -> JobQueueResult<()> {
+    fn enqueue(&self, enq_job: EnqueuedJob) -> JobQueueResult<()> {
         let data: String = json!(enq_job).to_string();
-        let _: () = self.redis
-            .rpush(&self.key(iden), data)
+        let _: () = self.redis_con
+            .rpush(&self.key(), data)
             .map_err(|e| (e, ErrorOrigin::Enqueue))?;
 
         Ok(())
     }
 
     /// Pull a job out of the queue. This will block for `timeout` seconds if the queue is empty.
-    fn dequeue(&self, iden: QueueIdentifier) -> Result<EnqueuedJob, NoJobDequeued> {
+    fn dequeue(&self) -> Result<EnqueuedJob, NoJobDequeued> {
         let timeout_in_seconds = self.timeout;
-        let bulk: Vec<redis::Value> = self.redis
-            .blpop(&self.key(iden), timeout_in_seconds)
+        let bulk: Vec<redis::Value> = self.redis_con
+            .blpop(&self.key(), timeout_in_seconds)
             .map_err(|e| NoJobDequeued::from((e, ErrorOrigin::Dequeue)))?;
 
         match bulk.get(1) {
@@ -96,17 +107,17 @@ impl JobQueue for RedisQueue {
     }
 
     /// Delete everything in the queue.
-    fn delete_all(&self, iden: QueueIdentifier) -> JobQueueResult<()> {
-        let _: () = self.redis
-            .del(&self.key(iden))
+    fn delete_all(&self) -> JobQueueResult<()> {
+        let _: () = self.redis_con
+            .del(&self.key())
             .map_err(|e| (e, ErrorOrigin::DeleteAll))?;
         Ok(())
     }
 
     /// The number of jobs in the queue.
-    fn size(&self, iden: QueueIdentifier) -> JobQueueResult<usize> {
-        let size: usize = self.redis
-            .llen(&self.key(iden))
+    fn size(&self) -> JobQueueResult<usize> {
+        let size: usize = self.redis_con
+            .llen(&self.key())
             .map_err(|e| (e, ErrorOrigin::Size))?;
         Ok(size)
     }

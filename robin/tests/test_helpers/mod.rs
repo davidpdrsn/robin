@@ -1,4 +1,8 @@
-use std::{error, fmt, io, fs::{self, File}, io::{BufWriter, Write, prelude::*}};
+use std::{error,
+          fmt,
+          fs::{self, File},
+          io,
+          io::{prelude::*, BufWriter, Write}};
 
 use robin::prelude::*;
 use robin::redis_queue::*;

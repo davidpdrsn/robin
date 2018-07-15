@@ -35,7 +35,7 @@ impl MemoryQueueConfig {
 }
 
 impl MemoryQueueConfig {
-    fn enqueue(&self, enq_job: EnqueuedJob, iden: QueueIdentifier) -> JobQueueResult<()> {
+    fn enqueue(&self, enq_job: EnqueuedJob) -> JobQueueResult<()> {
         self.send
             .lock()
             .expect("mutex was poisoned")
@@ -44,7 +44,7 @@ impl MemoryQueueConfig {
         Ok(())
     }
 
-    fn dequeue(&self, iden: QueueIdentifier) -> Result<EnqueuedJob, NoJobDequeued> {
+    fn dequeue(&self) -> Result<EnqueuedJob, NoJobDequeued> {
         self.recv
             .lock()
             .expect("mutex was poisoned")
@@ -52,7 +52,7 @@ impl MemoryQueueConfig {
             .map_err(|_| NoJobDequeued::BecauseTimeout)
     }
 
-    fn delete_all(&self, iden: QueueIdentifier) -> JobQueueResult<()> {
+    fn delete_all(&self) -> JobQueueResult<()> {
         let recv = self.recv.lock().expect("mutex was poisoned");
         loop {
             if let Err(_) = recv.try_recv() {
@@ -62,7 +62,7 @@ impl MemoryQueueConfig {
         Ok(())
     }
 
-    fn size(&self, iden: QueueIdentifier) -> JobQueueResult<usize> {
+    fn size(&self) -> JobQueueResult<usize> {
         let mut jobs = vec![];
         let mut count = 0;
 
@@ -104,18 +104,23 @@ impl Clone for MemoryQueueConfig {
 impl JobQueue for MemoryQueue {
     type Config = MemoryQueueConfig;
 
-    fn new(config: &MemoryQueueConfig) -> JobQueueResult<Self> {
-        Ok(MemoryQueue {
-            config: config.clone(),
-        })
+    fn new(config: &MemoryQueueConfig) -> JobQueueResult<(Self, Self)> {
+        Ok((
+            MemoryQueue {
+                config: config.clone(),
+            },
+            MemoryQueue {
+                config: config.clone(),
+            },
+        ))
     }
 
-    fn enqueue(&self, enq_job: EnqueuedJob, iden: QueueIdentifier) -> JobQueueResult<()> {
-        self.config.enqueue(enq_job, iden)
+    fn enqueue(&self, enq_job: EnqueuedJob) -> JobQueueResult<()> {
+        self.config.enqueue(enq_job)
     }
 
-    fn dequeue(&self, iden: QueueIdentifier) -> Result<EnqueuedJob, NoJobDequeued> {
-        self.config.dequeue(iden)
+    fn dequeue(&self) -> Result<EnqueuedJob, NoJobDequeued> {
+        self.config.dequeue()
     }
 
     /// Delete all jobs from the queue.
@@ -124,7 +129,7 @@ impl JobQueue for MemoryQueue {
     /// # extern crate robin;
     /// # use robin::prelude::*;
     /// use robin::memory_queue::*;
-    /// use robin::queue_adapters::{JobQueueResult, EnqueuedJob, QueueIdentifier, RetryCount};
+    /// use robin::queue_adapters::{JobQueueResult, EnqueuedJob, RetryCount};
     ///
     /// # use std::error::Error;
     /// # fn main() {
@@ -133,21 +138,21 @@ impl JobQueue for MemoryQueue {
     /// # fn try_main() -> JobQueueResult<()> {
     /// #
     /// let config = MemoryQueueConfig::default();
-    /// let q = MemoryQueue::new(&config)?;
+    /// let (q, _retry_q) = MemoryQueue::new(&config)?;
     ///
     /// let job = EnqueuedJob::new("name", "args", RetryCount::NeverRetried);
-    /// q.enqueue(job, QueueIdentifier::Main);
+    /// q.enqueue(job);
     ///
-    /// assert_eq!(q.size(QueueIdentifier::Main)?, 1);
+    /// assert_eq!(q.size()?, 1);
     ///
-    /// q.delete_all(QueueIdentifier::Main);
+    /// q.delete_all();
     ///
-    /// assert_eq!(q.size(QueueIdentifier::Main)?, 0);
+    /// assert_eq!(q.size()?, 0);
     /// # Ok(())
     /// # }
     /// ```
-    fn delete_all(&self, iden: QueueIdentifier) -> JobQueueResult<()> {
-        self.config.delete_all(iden)
+    fn delete_all(&self) -> JobQueueResult<()> {
+        self.config.delete_all()
     }
 
     /// Get the number of jobs in the queue.
@@ -156,7 +161,7 @@ impl JobQueue for MemoryQueue {
     /// # extern crate robin;
     /// # use robin::prelude::*;
     /// use robin::memory_queue::*;
-    /// use robin::queue_adapters::{JobQueueResult, EnqueuedJob, QueueIdentifier, RetryCount};
+    /// use robin::queue_adapters::{JobQueueResult, EnqueuedJob, RetryCount};
     ///
     /// # use std::error::Error;
     /// # fn main() {
@@ -165,19 +170,19 @@ impl JobQueue for MemoryQueue {
     /// # fn try_main() -> JobQueueResult<()> {
     /// #
     /// let config = MemoryQueueConfig::default();
-    /// let q = MemoryQueue::new(&config)?;
+    /// let (q, _retry_q) = MemoryQueue::new(&config)?;
     ///
-    /// assert_eq!(q.size(QueueIdentifier::Main)?, 0);
+    /// assert_eq!(q.size()?, 0);
     ///
     /// let job = EnqueuedJob::new("name", "args", RetryCount::NeverRetried);
-    /// q.enqueue(job, QueueIdentifier::Main);
+    /// q.enqueue(job);
     ///
-    /// assert_eq!(q.size(QueueIdentifier::Main)?, 1);
+    /// assert_eq!(q.size()?, 1);
     /// # Ok(())
     /// # }
     /// ```
-    fn size(&self, iden: QueueIdentifier) -> JobQueueResult<usize> {
-        self.config.size(iden)
+    fn size(&self) -> JobQueueResult<usize> {
+        self.config.size()
     }
 }
 

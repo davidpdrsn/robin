@@ -27,6 +27,8 @@ for Rust libraries in [RFC #1105](https://github.com/rust-lang/rfcs/blob/master/
 - Remove `#[derive(Job)]`. Turns out `job!` was able to generate all the cod we needed.
 - The variants `Error::UnknownRedisError` and `Error::RedisError` has been removed. They are replaced with `JobQueueError` and `JobQueueErrorInformation`.
 - Make the `connections::queue_adapters` module private. There is no reason for users to depend on this.
+- `Connection::size` has been made private. Instead call `Connection::main_queue_size` or `Connection::retry_queue_size` depending on what you want.
+- `QueueIdentifier::redis_queue_name`. The redis queue type now handles this internally.
 
 ### Fixed
 
