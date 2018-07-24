@@ -109,7 +109,9 @@ impl WorkerManager {
     }
 
     fn join_threads(self) {
-        self.handles.into_iter().for_each(|h| h.join().unwrap());
+        for handle in self.handles {
+            handle.join().expect("Failed to join thread");
+        }
     }
 }
 
@@ -143,8 +145,10 @@ fn worker_loop<Q, T, K>(
                 NoJobPerformedReason::HitTimeout => if received_perform_jobs_and_die {
                     break;
                 },
-                NoJobPerformedReason::RetryLimitReached => {
+                NoJobPerformedReason::RetryLimitReached(job_name, retry_count, args) => {
                     debug!("retry limit reached");
+                    con.retry_limit_reached(job_name, &args, retry_count)
+                        .expect("Failed to put job into dead queue");
                 }
             },
         }
@@ -170,7 +174,7 @@ enum PerformJobOutput {
 #[derive(Debug)]
 enum NoJobPerformedReason {
     HitTimeout,
-    RetryLimitReached,
+    RetryLimitReached(JobName, RetryCount, Args),
 }
 
 fn perform_job<Q>(job: DequeuedJob<Q>, con: &Connection<Q>) -> PerformJobOutput
@@ -202,11 +206,16 @@ fn perform_or_retry<Q: JobQueue>(
 ) -> PerformJobOutput {
     let retry_count = retry_count.increment();
 
+    // TODO: Handle this error
+    let args = serde_json::from_str(&args).expect("TODO");
+
     if retry_count.limit_reached(con.config()) {
-        PerformJobOutput::NoJobPerformed(NoJobPerformedReason::RetryLimitReached)
+        PerformJobOutput::NoJobPerformed(NoJobPerformedReason::RetryLimitReached(
+            job.name(),
+            retry_count,
+            args,
+        ))
     } else {
-        // TODO: Handle this error
-        let args = serde_json::from_str(&args).expect("TODO");
         let job_result = job.perform(&args, &con);
 
         match job_result {

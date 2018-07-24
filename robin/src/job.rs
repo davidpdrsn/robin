@@ -45,7 +45,7 @@ impl Args {
 ///
 /// **NOTE:** You normally wouldn't need to implement this. The [`jobs!`](../macro.jobs.html) macro
 /// will implement it for you.
-pub trait Job<Q> {
+pub trait Job<Q: JobQueue> {
     /// The name of the job. Required to put the job into Redis.
     fn name(&self) -> JobName;
 
@@ -56,7 +56,7 @@ pub trait Job<Q> {
 /// Trait for either performing immediately, or more commonly, later.
 /// This trait is automatically implemented for types that implement [`Job`](trait.Job.html)
 /// so you shouldn't ever need to implement this manually.
-pub trait PerformJob<Q, A> {
+pub trait PerformJob<Q: JobQueue, A> {
     /// Perform the job right now without blocking.
     fn perform_now(&self, args: A, con: &Connection<Q>) -> RobinResult<()>;
 

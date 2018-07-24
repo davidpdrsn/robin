@@ -1,7 +1,7 @@
 use config::Config;
 use error::*;
 use job::*;
-use queue_adapters::{redis_queue::RedisQueue, EnqueuedJob, JobQueue, NoJobDequeued,
+use queue_adapters::{redis_queue::RedisQueue, DeadSet, EnqueuedJob, JobQueue, NoJobDequeued,
                      QueueIdentifier, RetryCount};
 
 /// Create a new connection.
@@ -24,9 +24,10 @@ where
     Q: JobQueue<Config = K>,
 {
     JobQueue::new(&queue_config)
-        .map(|(main_queue, retry_queue)| Connection {
+        .map(|(main_queue, retry_queue, dead_set)| Connection {
             main_queue: main_queue,
             retry_queue: retry_queue,
+            dead_set: dead_set,
             config: config,
             lookup_job: Box::new(lookup_job),
         })
@@ -35,10 +36,11 @@ where
 
 /// The connection to the queue backend. Required to enqueue and dequeue jobs.
 #[allow(missing_debug_implementations)]
-pub struct Connection<Q> {
+pub struct Connection<Q: JobQueue> {
     config: Config,
     main_queue: Q,
     retry_queue: Q,
+    dead_set: Q::DeadSet,
     lookup_job: Box<LookupJob<Q>>,
 }
 
@@ -83,6 +85,22 @@ where
     #[doc(hidden)]
     pub fn retry(&self, name: JobName, args: &Args, retry_count: RetryCount) -> RobinResult<()> {
         self.enqueue_to(QueueIdentifier::Retry, name, args, retry_count)
+    }
+
+    #[doc(hidden)]
+    pub fn retry_limit_reached(
+        &self,
+        name: JobName,
+        args: &Args,
+        retry_count: RetryCount,
+    ) -> RobinResult<()> {
+        let enq_job = EnqueuedJob::build()
+            .name(name.0.clone())
+            .args(args.to_json()?)
+            .retry_count(retry_count)
+            .done();
+
+        self.dead_set.push(enq_job).map_err(Error::from)
     }
 
     #[doc(hidden)]
@@ -131,6 +149,11 @@ where
     /// The number of jobs in the main queue
     pub fn retry_queue_size(&self) -> RobinResult<usize> {
         self.size(QueueIdentifier::Retry)
+    }
+
+    /// The number of jobs in the dead queue
+    pub fn dead_set_size(&self) -> RobinResult<usize> {
+        self.dead_set.size().map_err(Error::from)
     }
 
     /// `true` if there are 0 jobs in the main queue, `false` otherwise

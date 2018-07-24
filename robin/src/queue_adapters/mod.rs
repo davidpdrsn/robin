@@ -19,8 +19,11 @@ where
     /// The type required to configure the queue.
     type Config;
 
+    /// The type used for dead jobs.
+    type DeadSet: DeadSet;
+
     /// Create a new queue with the given config.
-    fn new(init: &Self::Config) -> JobQueueResult<(Self, Self)>;
+    fn new(init: &Self::Config) -> JobQueueResult<(Self, Self, Self::DeadSet)>;
 
     /// Push a job into the queue.
     fn enqueue(&self, enq_job: EnqueuedJob) -> JobQueueResult<()>;
@@ -32,6 +35,15 @@ where
     fn delete_all(&self) -> JobQueueResult<()>;
 
     /// Get the number of jobs in the queue.
+    fn size(&self) -> JobQueueResult<usize>;
+}
+
+/// Trait that represents a datastructure holding failed jobs
+pub trait DeadSet {
+    /// Add a failed job to the set.
+    fn push(&self, enq_job: EnqueuedJob) -> JobQueueResult<()>;
+
+    /// Get the number of failed jobs in the set.
     fn size(&self) -> JobQueueResult<usize>;
 }
 
@@ -110,6 +122,9 @@ pub enum ErrorOrigin {
 
     /// The error originated in the `enqueue` method.
     Enqueue,
+
+    /// The error originated in the `push` method for the dead set.
+    DeadSetPush,
 
     /// The error originated in the `dequeue` method.
     Dequeue,

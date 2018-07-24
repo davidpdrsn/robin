@@ -13,7 +13,7 @@ robin_test!(performing_jobs, || {
     jobs! { TestJob(String) }
 
     impl TestJob {
-        fn perform<Q>(unique_string: String, _con: &Connection<Q>) -> JobResult {
+        fn perform<Q: JobQueue>(unique_string: String, _con: &Connection<Q>) -> JobResult {
             write_tmp_test_file(unique_string.clone(), unique_string);
             Ok(())
         }
@@ -40,7 +40,7 @@ robin_test!(main_queue_size_test, || {
     jobs! { TestJob(()) }
 
     impl TestJob {
-        fn perform<Q>(_args: (), _con: &Connection<Q>) -> JobResult {
+        fn perform<Q: JobQueue>(_args: (), _con: &Connection<Q>) -> JobResult {
             Ok(())
         }
     }
@@ -70,7 +70,7 @@ robin_test!(retrying_jobs, || {
     jobs! { TestJob(()) }
 
     impl TestJob {
-        fn perform<Q>(_args: (), _con: &Connection<Q>) -> JobResult {
+        fn perform<Q: JobQueue>(_args: (), _con: &Connection<Q>) -> JobResult {
             TestError("fail").into_job_result()
         }
     }
@@ -99,7 +99,7 @@ robin_test!(performing_with_in_memory_queue, || {
     jobs! { TestJob(String) }
 
     impl TestJob {
-        fn perform<Q>(unique_string: String, _con: &Connection<Q>) -> JobResult {
+        fn perform<Q: JobQueue>(unique_string: String, _con: &Connection<Q>) -> JobResult {
             write_tmp_test_file(unique_string.clone(), unique_string);
             Ok(())
         }
@@ -123,4 +123,34 @@ robin_test!(performing_with_in_memory_queue, || {
     ).perform_all_jobs_and_die();
 
     assert_eq!(read_tmp_test_file(filename.clone()).unwrap(), filename);
+});
+
+robin_test!(adding_jobs_to_dead_queue, || {
+    jobs! { TestJob(()) }
+
+    impl TestJob {
+        fn perform<Q: JobQueue>(_args: (), _con: &Connection<Q>) -> JobResult {
+            TestError("fail").into_job_result()
+        }
+    }
+
+    let config = test_config();
+    let queue_config = test_redis_init();
+    let con = robin_establish_connection!(RedisQueue, config, queue_config).unwrap();
+
+    TestJob::perform_later(&(), &con).unwrap();
+
+    robin::worker::spawn_workers::<RedisQueue, _, _>(
+        &config.clone(),
+        queue_config.clone(),
+        __robin_lookup_job,
+    ).perform_all_jobs_and_die();
+
+    assert_eq!(con.main_queue_size().unwrap(), 0);
+    assert_eq!(con.retry_queue_size().unwrap(), 0);
+    assert_eq!(con.dead_set_size().unwrap(), 1);
+
+    // let jobs: Vec<EnqueuedJob> = con.dead_();
+
+    // TODO: Include when the job failed
 });

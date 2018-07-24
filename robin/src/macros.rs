@@ -31,7 +31,7 @@
 /// }
 ///
 /// impl SendPushNotification {
-///     fn perform<Q>(args: SendPushNotificationArgs, _con: &Connection<Q>) -> JobResult {
+///     fn perform<Q: JobQueue>(args: SendPushNotificationArgs, _con: &Connection<Q>) -> JobResult {
 ///         // Code for actually sending push notifications
 ///         Ok(())
 ///     }
@@ -119,7 +119,7 @@
 /// }
 /// #
 /// # impl SendPushNotification {
-/// #     fn perform<Q>(args: SendPushNotificationArgs, _con: &Connection<Q>) -> JobResult {
+/// #     fn perform<Q: JobQueue>(args: SendPushNotificationArgs, _con: &Connection<Q>) -> JobResult {
 /// #         Ok(())
 /// #     }
 /// # }
@@ -185,7 +185,7 @@
 /// }
 /// #
 /// # impl SendPushNotification {
-/// #     fn perform<Q>(args: SendPushNotificationArgs, _con: &Connection<Q>) -> JobResult {
+/// #     fn perform<Q: JobQueue>(args: SendPushNotificationArgs, _con: &Connection<Q>) -> JobResult {
 /// #         Ok(())
 /// #     }
 /// # }
@@ -287,7 +287,7 @@ macro_rules! jobs {
 /// # }
 /// #
 /// # impl SendPushNotification {
-/// #     fn perform<Q>(args: SendPushNotificationArgs, _con: &Connection<Q>) -> JobResult {
+/// #     fn perform<Q: JobQueue>(args: SendPushNotificationArgs, _con: &Connection<Q>) -> JobResult {
 /// #         Ok(())
 /// #     }
 /// # }
@@ -348,7 +348,7 @@ macro_rules! robin_establish_connection {
 /// #     MyJob(()),
 /// # }
 /// # impl MyJob {
-/// #     fn perform<Q>(args: (), _con: &Connection<Q>) -> JobResult {
+/// #     fn perform<Q: JobQueue>(args: (), _con: &Connection<Q>) -> JobResult {
 /// #         Ok(())
 /// #     }
 /// # }

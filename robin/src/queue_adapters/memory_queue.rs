@@ -78,7 +78,7 @@ impl MemoryQueueConfig {
 
         let send = self.send.lock().expect("mutex was poisoned");
         for job in jobs {
-            send.send(job);
+            send.send(job).expect("Failed to job back in queue");
         }
 
         Ok(count)
@@ -101,17 +101,25 @@ impl Clone for MemoryQueueConfig {
     }
 }
 
+fn new_queue(config: &MemoryQueueConfig) -> MemoryQueue {
+    MemoryQueue {
+        config: config.clone(),
+    }
+}
+
 impl JobQueue for MemoryQueue {
     type Config = MemoryQueueConfig;
+    type DeadSet = MemoryQueueDeadSet;
 
-    fn new(config: &MemoryQueueConfig) -> JobQueueResult<(Self, Self)> {
+    fn new(config: &MemoryQueueConfig) -> JobQueueResult<(Self, Self, MemoryQueueDeadSet)> {
+        let dead_set = MemoryQueueDeadSet {
+            jobs: Arc::new(Mutex::new(vec![])),
+        };
+
         Ok((
-            MemoryQueue {
-                config: config.clone(),
-            },
-            MemoryQueue {
-                config: config.clone(),
-            },
+            new_queue(&config.clone()),
+            new_queue(&config.clone()),
+            dead_set,
         ))
     }
 
@@ -138,7 +146,7 @@ impl JobQueue for MemoryQueue {
     /// # fn try_main() -> JobQueueResult<()> {
     /// #
     /// let config = MemoryQueueConfig::default();
-    /// let (q, _retry_q) = MemoryQueue::new(&config)?;
+    /// let (q, _retry_q, _dead_q) = MemoryQueue::new(&config)?;
     ///
     /// let job = EnqueuedJob::new("name", "args", RetryCount::NeverRetried);
     /// q.enqueue(job);
@@ -170,7 +178,7 @@ impl JobQueue for MemoryQueue {
     /// # fn try_main() -> JobQueueResult<()> {
     /// #
     /// let config = MemoryQueueConfig::default();
-    /// let (q, _retry_q) = MemoryQueue::new(&config)?;
+    /// let (q, _retry_q, _dead_q) = MemoryQueue::new(&config)?;
     ///
     /// assert_eq!(q.size()?, 0);
     ///
@@ -188,3 +196,21 @@ impl JobQueue for MemoryQueue {
 
 test_type_impls!(memory_queue_impls_send, MemoryQueue, Send);
 test_type_impls!(memory_queue_impls_sync, MemoryQueue, Sync);
+
+/// The dead set type used with in-memory queues.
+#[derive(Debug)]
+pub struct MemoryQueueDeadSet {
+    jobs: Arc<Mutex<Vec<EnqueuedJob>>>,
+}
+
+impl DeadSet for MemoryQueueDeadSet {
+    fn push(&self, enq_job: EnqueuedJob) -> JobQueueResult<()> {
+        self.jobs.lock().expect("mutex was poisoned").push(enq_job);
+        Ok(())
+    }
+
+    fn size(&self) -> JobQueueResult<usize> {
+        let size = self.jobs.lock().expect("mutex was poisoned").len();
+        Ok(size)
+    }
+}

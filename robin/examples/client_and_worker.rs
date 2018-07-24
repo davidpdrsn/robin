@@ -43,7 +43,7 @@ jobs! {
 }
 
 impl MyJob {
-    fn perform<Q>(args: JobArgs, _con: &Connection<Q>) -> JobResult {
+    fn perform<Q: JobQueue>(args: JobArgs, _con: &Connection<Q>) -> JobResult {
         println!("Job performed with {:?}", args);
         Ok(())
     }

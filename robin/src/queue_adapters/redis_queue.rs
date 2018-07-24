@@ -48,9 +48,10 @@ impl Default for RedisConfig {
 
 impl JobQueue for RedisQueue {
     type Config = RedisConfig;
+    type DeadSet = RedisDeadSet;
 
     /// Create a new `RedisQueue` using the given config
-    fn new(init: &RedisConfig) -> JobQueueResult<(Self, Self)> {
+    fn new(init: &RedisConfig) -> JobQueueResult<(Self, Self, RedisDeadSet)> {
         let client = Client::open(init.url.as_ref()).map_err(|e| (e, ErrorOrigin::Initialization))?;
 
         let con = client
@@ -72,12 +73,19 @@ impl JobQueue for RedisQueue {
             timeout: init.timeout,
         };
 
-        Ok((main_q, retry_q))
+        let dead_set = RedisDeadSet {
+            redis_con: Arc::clone(&con),
+            redis_url: init.url.to_string(),
+            key: format!("{}_{}", "dead", init.namespace.to_string()),
+        };
+
+        Ok((main_q, retry_q, dead_set))
     }
 
     /// Put a job into a queue
     fn enqueue(&self, enq_job: EnqueuedJob) -> JobQueueResult<()> {
         let data: String = json!(enq_job).to_string();
+
         let _: () = self.redis_con
             .rpush(&self.key(), data)
             .map_err(|e| (e, ErrorOrigin::Enqueue))?;
@@ -128,6 +136,48 @@ impl Debug for RedisQueue {
         write!(
             f,
             "RedisQueue {{ key: {:?}, redis_url: {:?} }}",
+            self.key, self.redis_url
+        )
+    }
+}
+
+/// The dead set type used with redis queues.
+pub struct RedisDeadSet {
+    redis_con: Arc<redis::Connection>,
+    redis_url: String,
+    key: String,
+}
+
+impl RedisDeadSet {
+    fn key(&self) -> String {
+        self.key.clone()
+    }
+}
+
+impl DeadSet for RedisDeadSet {
+    fn push(&self, enq_job: EnqueuedJob) -> JobQueueResult<()> {
+        let data: String = json!(enq_job).to_string();
+
+        let _: () = self.redis_con
+            .rpush(&self.key(), data)
+            .map_err(|e| (e, ErrorOrigin::DeadSetPush))?;
+
+        Ok(())
+    }
+
+    fn size(&self) -> JobQueueResult<usize> {
+        let size: usize = self.redis_con
+            .llen(&self.key())
+            .map_err(|e| (e, ErrorOrigin::Size))?;
+        Ok(size)
+    }
+}
+
+impl Debug for RedisDeadSet {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(
+            f,
+            "RedisDeadSet {{ key: {:?}, redis_url: {:?} }}",
             self.key, self.redis_url
         )
     }
