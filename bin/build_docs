@@ -1,0 +1,6 @@
+#!/bin/bash
+set -e
+
+tmux rename-window -t docs docs-building
+cargo doc
+tmux rename-window -t docs-building docs
