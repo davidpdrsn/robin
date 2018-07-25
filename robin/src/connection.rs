@@ -156,6 +156,11 @@ where
         self.dead_set.size().map_err(Error::from)
     }
 
+    /// An iterator over the jobs in the dead set.
+    pub fn dead_set_iter(&self) -> RobinResult<Box<Iterator<Item = EnqueuedJob>>> {
+        self.dead_set.iter().map_err(Error::from)
+    }
+
     /// `true` if there are 0 jobs in the main queue, `false` otherwise
     pub fn is_main_queue_empty(&self) -> RobinResult<bool> {
         self.is_empty(QueueIdentifier::Main)

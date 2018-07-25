@@ -171,6 +171,23 @@ impl DeadSet for RedisDeadSet {
             .map_err(|e| (e, ErrorOrigin::Size))?;
         Ok(size)
     }
+
+    fn iter(&self) -> Result<Box<Iterator<Item = EnqueuedJob>>, NoJobDequeued> {
+        let v: Vec<redis::Value> = self.redis_con
+            .lrange(&self.key(), 0, -1)
+            .map_err(|e| NoJobDequeued::from((e, ErrorOrigin::DeadSetIter)))?;
+
+        let iter = v.into_iter().map(|entry| match entry {
+            redis::Value::Data(data) => {
+                let data =
+                    String::from_utf8(data.to_vec()).expect("Didn't get valid UTF-8 from Redis");
+                serde_json::from_str(&data).unwrap()
+            }
+            _ => panic!("TODO"),
+        });
+
+        Ok(Box::new(iter))
+    }
 }
 
 impl Debug for RedisDeadSet {

@@ -213,4 +213,9 @@ impl DeadSet for MemoryQueueDeadSet {
         let size = self.jobs.lock().expect("mutex was poisoned").len();
         Ok(size)
     }
+
+    fn iter(&self) -> Result<Box<Iterator<Item = EnqueuedJob>>, NoJobDequeued> {
+        panic!()
+        // Box::new(self.jobs.lock().expect("mutex was poisoned").iter())
+    }
 }

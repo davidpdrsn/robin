@@ -45,6 +45,9 @@ pub trait DeadSet {
 
     /// Get the number of failed jobs in the set.
     fn size(&self) -> JobQueueResult<usize>;
+
+    /// An iterator over the jobs in the dead set.
+    fn iter(&self) -> Result<Box<Iterator<Item = EnqueuedJob>>, NoJobDequeued>;
 }
 
 /// The result type returned by job backends.
@@ -128,6 +131,9 @@ pub enum ErrorOrigin {
 
     /// The error originated in the `dequeue` method.
     Dequeue,
+
+    /// The error originated in the `iter` method for the dead set.
+    DeadSetIter,
 
     /// The error originated in the `delete_all` method.
     DeleteAll,

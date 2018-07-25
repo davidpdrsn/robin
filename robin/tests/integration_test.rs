@@ -150,7 +150,11 @@ robin_test!(adding_jobs_to_dead_queue, || {
     assert_eq!(con.retry_queue_size().unwrap(), 0);
     assert_eq!(con.dead_set_size().unwrap(), 1);
 
-    // let jobs: Vec<EnqueuedJob> = con.dead_();
+    let mut count = 0;
+    for _ in con.dead_set_iter().unwrap() {
+        count += 1;
+    }
+    assert_eq!(count, 1);
 
     // TODO: Include when the job failed
 });
