@@ -1,8 +1,8 @@
 extern crate serde_json;
 
-use connection::Connection;
-use error::{Error, RobinResult};
-use queue_adapters::{JobQueue, QueueIdentifier, RetryCount};
+use crate::connection::Connection;
+use crate::error::{Error, RobinResult};
+use crate::queue_adapters::{JobQueue, QueueIdentifier, RetryCount};
 use serde::{Deserialize, Serialize};
 use std;
 

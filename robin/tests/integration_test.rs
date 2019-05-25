@@ -3,7 +3,7 @@ extern crate robin;
 extern crate uuid;
 
 mod test_helpers;
-use test_helpers::*;
+use crate::test_helpers::*;
 
 use robin::memory_queue::*;
 use robin::prelude::*;
@@ -94,7 +94,7 @@ robin_test!(retrying_jobs, || {
 });
 
 robin_test!(performing_with_in_memory_queue, || {
-    use std::time::Duration;
+    
 
     jobs! { TestJob(String) }
 

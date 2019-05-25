@@ -4,6 +4,7 @@ version = "0.1.0"
 authors = ["David Pedersen <david.pdrsn@gmail.com>"]
 description = "Derive builder macro"
 license = "MIT"
+edition = "2018"
 
 [dependencies]
 syn = "0.11.11"

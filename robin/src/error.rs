@@ -1,4 +1,4 @@
-use queue_adapters::{JobQueueError, JobQueueErrorInformation};
+use crate::queue_adapters::{JobQueueError, JobQueueErrorInformation};
 use serde_json;
 use std::{error, fmt};
 

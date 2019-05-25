@@ -1,6 +1,6 @@
 #![allow(unused_imports)]
 use super::*;
-use error::*;
+use crate::error::*;
 use std::default::Default;
 use std::{sync::{mpsc::{channel, Receiver, SendError, Sender},
                  Arc,
