@@ -147,21 +147,21 @@ pub mod prelude {
     //! Reexports the most commonly used types and traits from the other modules.
     //! As long as you're doing standard things this is the only `use` you'll need.
 
-    pub use config::Config;
-    pub use connection::{establish, Connection, LookupJob};
-    pub use error::RobinResult;
-    pub use job::{Args, Job, JobName, JobResult, PerformJob};
-    pub use queue_adapters::JobQueue;
-    pub use worker::{boot, spawn_workers};
+    pub use crate::config::Config;
+    pub use crate::connection::{establish, Connection, LookupJob};
+    pub use crate::error::RobinResult;
+    pub use crate::job::{Args, Job, JobName, JobResult, PerformJob};
+    pub use crate::queue_adapters::JobQueue;
+    pub use crate::worker::{boot, spawn_workers};
 }
 
 /// Contains the types you'll need if you wish to use Redis as your backend.
 pub mod redis_queue {
-    pub use queue_adapters::redis_queue::{RedisConfig, RedisQueue};
+    pub use crate::queue_adapters::redis_queue::{RedisConfig, RedisQueue};
 }
 
 /// Contains the types you'll need if you wish to use Robins in-memory queue. Usually only used for
 /// testing.
 pub mod memory_queue {
-    pub use queue_adapters::memory_queue::{MemoryQueue, MemoryQueueConfig};
+    pub use crate::queue_adapters::memory_queue::{MemoryQueue, MemoryQueueConfig};
 }

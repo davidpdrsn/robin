@@ -1,7 +1,7 @@
-use config::Config;
-use connection::*;
-use job::*;
-use queue_adapters::{JobQueue, NoJobDequeued, QueueIdentifier, RetryCount};
+use crate::config::Config;
+use crate::connection::*;
+use crate::job::*;
+use crate::queue_adapters::{JobQueue, NoJobDequeued, QueueIdentifier, RetryCount};
 use serde_json;
 use std::sync::mpsc::*;
 use std::thread::{self, JoinHandle};

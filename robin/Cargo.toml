@@ -9,6 +9,7 @@ name = "robin"
 readme = "README.md"
 repository = "https://github.com/davidpdrsn/robin.git"
 version = "0.3.0"
+edition = "2018"
 
 [dependencies]
 serde = "1.0"
